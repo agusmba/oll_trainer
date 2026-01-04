@@ -1,5 +1,7 @@
 var selCases = [];
 
+var algsOrder = [];
+
 var algsGroups = {
     "All Edges Oriented Correctly" : [26, 27, 21, 22, 24, 25, 23],
     "T-Shapes" : [33, 45],
@@ -16,6 +18,10 @@ var algsGroups = {
     "Lightning Bolts" : [7, 8, 11, 12, 39, 40],
     "No Edges Flipped Correctly" : [1,2,3,4,18,19,17,20],
 };
+
+for (i in algsGroups) {
+    algsOrder = algsOrder.concat(algsGroups[i]);
+}
 
 var algsInfo = {
     1: {

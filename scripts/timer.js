@@ -453,7 +453,10 @@ function displayStats()
         }
 
         var keys = Object.keys(resultsByCase);
-        keys.sort();
+        keys.sort(function(a, b) {
+            //return parseInt(a) - parseInt(b); // old simple fix numerical order
+            return algsOrder.indexOf(a) - algsOrder.indexOf(b); // new algsinfo ordering
+        });
 
         var s = "";
         // allocate them inside times span
