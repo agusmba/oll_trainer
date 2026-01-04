@@ -4,6 +4,7 @@ if (timesArray == null) // todo fix when figure out why JSON.parse("[]") returns
     timesArray = [];
 var lastScramble = "";
 var lastCase = 0;
+var goal = 5000;
 
 displayStats(); // after loading
 
@@ -48,9 +49,9 @@ function randomWeightedElement(items, weights) {
 
 function updateSelectedWeights(ms)
 {
-    const goal = 5000; // TODO: expose alg time goal in UI ()
+    if (isNaN(window.goal) || window.goal == 0) return;
     const index = window.selCases.indexOf(window.lastCase);
-    if (ms > 5000) window.selCasesWeights[index] *= 2;
+    if (ms > window.goal) window.selCasesWeights[index] *= 2;
     else window.selCasesWeights[index] /= 2;
 }
 
@@ -493,7 +494,8 @@ function displayStats()
             var timesString = "";
             var meanForCase = 0.0;
             var i = 0;
-            timesString += "[weight: " + window.selCasesWeights[window.selCases.indexOf(parseInt(oll))] + "] ";
+            if (!isNaN(window.goal) && window.goal > 0) 
+                timesString += "[weight: " + window.selCasesWeights[window.selCases.indexOf(parseInt(oll))] + "] ";
             for (; i < resultsByCase[oll].length; i++)
             {
                 timesString += makeHtmlDisplayableTime(resultsByCase[oll][i]);
@@ -600,6 +602,12 @@ function resetStyle(dark) {
     document.getElementById("linkscolor_in").value = dark ? "#ffff00" : "#004411";
     applystyle();
     savestyle();
+}
+
+function applygoal() {
+    //window.goal = document.getElementById("goal_in").value;
+    window.goal = document.querySelector('#goal_in').valueAsNumber;
+    displayStats();
 }
 
 // add key listeners to blur settings inputs
