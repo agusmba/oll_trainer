@@ -493,6 +493,7 @@ function displayStats()
             var timesString = "";
             var meanForCase = 0.0;
             var i = 0;
+            timesString += "[weight: " + window.selCasesWeights[window.selCases.indexOf(parseInt(oll))] + "] ";
             for (; i < resultsByCase[oll].length; i++)
             {
                 timesString += makeHtmlDisplayableTime(resultsByCase[oll][i]);
