@@ -29,6 +29,31 @@ function randomElement(arr)
     return arr[Math.floor(Math.random()*arr.length)];
 }
 
+// https://stackoverflow.com/a/55671924
+function randomWeightedElement(items, weights) {
+    var i;
+    var _w = weights.slice(); // don't want to modify the original weights
+
+    for (i = 1; i < _w.length; i++)
+        _w[i] += _w[i - 1];
+    
+    var random = Math.random() * _w[_w.length - 1];
+    
+    for (i = 0; i < _w.length; i++)
+        if (_w[i] > random)
+            break;
+    
+    return items[i];
+}
+
+function updateSelectedWeights(ms)
+{
+    const goal = 5000; // TODO: expose alg time goal in UI ()
+    const index = window.selCases.indexOf(window.lastCase);
+    if (ms > 5000) window.selCasesWeights[index] *= 2;
+    else window.selCasesWeights[index] /= 2;
+}
+
 function confirmUnsel(i) {
     if (confirm("Do you want to unselect this case?")) {
         var index = window.selCases.indexOf(i);
@@ -62,7 +87,7 @@ function generateScramble()
     // get random case
     var caseNum = 0;
     if (recapArray.length == 0) { // train
-        caseNum = randomElement(window.selCases);
+        caseNum = randomWeightedElement(window.selCases, window.selCasesWeights);
     } else { // recap
         // select the case
         caseNum = randomElement(window.recapArray);
@@ -348,7 +373,9 @@ function escapeHtml(text) {
 function appendStats()
 {
     // assuming the time can be grabbed from timer label, and the case - window.lastCase
-    window.timesArray.push(makeResultInstance());
+    var mri = makeResultInstance();
+    window.timesArray.push(mri);
+    updateSelectedWeights(mri.ms);
     displayStats();
 }
 
@@ -389,6 +416,7 @@ function confirmClear()
 {
     if (confirm("Are you sure you want to clear session?")) {
         window.timesArray = [];
+        initializeSelCasesWeights();
         document.getElementById('infoHeader').innerHTML = ('')
         displayStats();
     }

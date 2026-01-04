@@ -2,6 +2,8 @@ var selCases = [];
 
 var algsOrder = [];
 
+var selCasesWeights = [];
+
 var algsGroups = {
     "All Edges Oriented Correctly" : [26, 27, 21, 22, 24, 25, 23],
     "T-Shapes" : [33, 45],

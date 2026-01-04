@@ -27,7 +27,13 @@ function loadLocal(name, defaultValue) {
     }
 }
 
+function initializeSelCasesWeights() {
+    window.selCasesWeights = new Array(window.selCases.length).fill(1);
+}
+
 function saveSelection() {
+    // we re-initialize the weights on selection change (save)
+    initializeSelCasesWeights();
     return saveLocal('ollSelection', JSON.stringify(window.selCases));
 }
 
