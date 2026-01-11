@@ -4,7 +4,7 @@ if (timesArray == null) // todo fix when figure out why JSON.parse("[]") returns
     timesArray = [];
 var lastScramble = "";
 var lastCase = 0;
-var goal = 5000;
+var goal = 0;
 
 displayStats(); // after loading
 
