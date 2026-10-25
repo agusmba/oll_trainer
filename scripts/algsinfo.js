@@ -21,8 +21,8 @@ var algsGroups = {
     "No Edges Flipped Correctly" : [1,2,3,4,18,19,17,20],
 };
 
-for (i in algsGroups) {
-    algsOrder = algsOrder.concat(algsGroups[i]);
+for (var group in algsGroups) {
+    algsOrder = algsOrder.concat(algsGroups[group]);
 }
 
 var algsInfo = {

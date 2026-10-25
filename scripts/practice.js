@@ -1,6 +1,10 @@
 /// \param m = mode: 0 = selection, 1 = practicing, 2 = recap
 function changeMode(m)
 {
+    // recapArray shrinks as recap goes through the cases, so it cannot tell "am I in recap?"
+    // on the last case; keep the mode explicitly.
+    window.recapInProgress = (m == 2);
+
     var pr = document.getElementsByClassName("practice_layout");
     for (var i = 0; i < pr.length; i++)
         pr[i].style.display = (m != 0) ? 'initial' : 'none';

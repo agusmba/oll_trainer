@@ -33,15 +33,15 @@ function randomElement(arr)
 // https://stackoverflow.com/a/55671924
 function randomWeightedElement(items, weights) {
     var i;
-    var _w = weights.slice(); // don't want to modify the original weights
+    var cumulative = weights.slice(); // don't want to modify the original weights
 
-    for (i = 1; i < _w.length; i++)
-        _w[i] += _w[i - 1];
+    for (i = 1; i < cumulative.length; i++)
+        cumulative[i] += cumulative[i - 1];
     
-    var random = Math.random() * _w[_w.length - 1];
+    var random = Math.random() * cumulative[cumulative.length - 1];
     
-    for (i = 0; i < _w.length; i++)
-        if (_w[i] > random)
+    for (i = 0; i < cumulative.length; i++)
+        if (cumulative[i] > random)
             break;
     
     return items[i];
@@ -49,8 +49,13 @@ function randomWeightedElement(items, weights) {
 
 function updateSelectedWeights(ms)
 {
-    if (isNaN(window.goal) || window.goal == 0) return;
+    // goal <= 0 means dynamic weights are off (0 is the default, negative is unreachable in the UI)
+    if (isNaN(window.goal) || window.goal <= 0) return;
+
     const index = window.selCases.indexOf(window.lastCase);
+    if (index < 0) return; // the last case is no longer part of the selection
+
+    // a solve at or under the goal beats it, so its weight halves; a slower one doubles
     if (ms > window.goal) window.selCasesWeights[index] *= 2;
     else window.selCasesWeights[index] /= 2;
 }
@@ -374,9 +379,10 @@ function escapeHtml(text) {
 function appendStats()
 {
     // assuming the time can be grabbed from timer label, and the case - window.lastCase
-    var mri = makeResultInstance();
-    window.timesArray.push(mri);
-    updateSelectedWeights(mri.ms);
+    var result = makeResultInstance();
+    window.timesArray.push(result);
+    // weights steer train selection; recap replays past solves, so it must not skew them
+    if (!window.recapInProgress) updateSelectedWeights(result.ms);
     displayStats();
 }
 
@@ -483,8 +489,8 @@ function displayStats()
 
         var keys = Object.keys(resultsByCase);
         keys.sort(function(a, b) {
-            //return parseInt(a) - parseInt(b); // old simple fix numerical order
-            return algsOrder.indexOf(a) - algsOrder.indexOf(b); // new algsinfo ordering
+            // algsOrder holds case numbers, Object.keys gives strings: coerce before looking up
+            return algsOrder.indexOf(parseInt(a)) - algsOrder.indexOf(parseInt(b)); // algsinfo grouping order
         });
 
         var s = "";
@@ -494,8 +500,9 @@ function displayStats()
             var timesString = "";
             var meanForCase = 0.0;
             var i = 0;
-            if (!isNaN(window.goal) && window.goal > 0) 
-                timesString += "[weight: " + window.selCasesWeights[window.selCases.indexOf(parseInt(oll))] + "] ";
+            var weightIndex = window.selCases.indexOf(parseInt(oll));
+            if (!isNaN(window.goal) && window.goal > 0 && weightIndex >= 0)
+                timesString += "[weight: " + window.selCasesWeights[weightIndex] + "] ";
             for (; i < resultsByCase[oll].length; i++)
             {
                 timesString += makeHtmlDisplayableTime(resultsByCase[oll][i]);
@@ -604,8 +611,7 @@ function resetStyle(dark) {
     savestyle();
 }
 
-function applygoal() {
-    //window.goal = document.getElementById("goal_in").value;
+function applyGoal() {
     window.goal = document.querySelector('#goal_in').valueAsNumber;
     displayStats();
 }
