@@ -9,6 +9,12 @@ cmake-build-*/
 # tmp files
 *~
 
+# agent skills installs (vendored, see skills-lock.json; repo config lives in local-docs/)
+.agents/
+
+# personal local dev config
+.envrc
+
 # vim
 [._]*.sw[a-p]
 tags
