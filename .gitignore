@@ -18,3 +18,9 @@ cmake-build-*/
 # vim
 [._]*.sw[a-p]
 tags
+
+# node deps for the headless test harness (dev only)
+node_modules/
+
+# local pi agent config (extensions, packages, settings)
+.pi/

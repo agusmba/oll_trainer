@@ -1,0 +1,12 @@
+{
+  "name": "oll_trainer-tests",
+  "private": true,
+  "description": "Headless browser test harness for the OLL Trainer app. Not part of the shipped app.",
+  "scripts": {
+    "test": "node --test test/",
+    "browser:install": "playwright install chromium-headless-shell"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1"
+  }
+}

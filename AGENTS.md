@@ -6,6 +6,8 @@ OLL Trainer is a web-based tool for practicing OLL algorithms in speedcubing. Th
 ## Build/Test Commands
 - To run locally, simply open index.html in a browser
 - Site can be used offline once downloaded
+- Tests are dev-only (`test/`, headless chromium over index.html); the commands live in `package.json`. The browser is fetched once into `~/.cache/ms-playwright`, outside the repo.
+- Case images are SVG. Render before looking at one: `rsvg-convert -w 300 pic/31.svg -o /tmp/case.png`
 
 ## Code Style Guidelines
 ### Organization
