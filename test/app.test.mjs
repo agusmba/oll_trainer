@@ -446,6 +446,133 @@ test('changing the Selection and clearing the session reset every weight', async
     } finally { await app.close(); }
 });
 
+test('applying a new Goal resets every Weight in the Selection', async () => {
+    const app = await openApp();
+    try {
+        await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
+        await clickTrain(app.page); // goal input lives on the practice page
+        await app.page.evaluate(() => { for (let k = 0; k < 2; ++k) bumpWeight(10, 9000, 1000); }); // 10 -> 4
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 4);
+
+        await app.page.fill('#goal_in', '500');
+        await app.page.evaluate(() => document.getElementById('goal_in').dispatchEvent(new Event('change')));
+
+        assert.equal(await app.page.evaluate(() => window.goal), 500);
+        assert.deepEqual(await app.page.evaluate(() => [weightOfCase(10), weightOfCase(20)]), [1, 1],
+            'a Goal change must reset the whole Selection\'s weights');
+    } finally { await app.close(); }
+});
+
+test('turning the Goal off (0) resets every Weight and stops printing weights', async () => {
+    const app = await openApp();
+    try {
+        await app.page.evaluate(() => {
+            window.selCases = [10, 20];
+            saveSelection();
+            window.goal = 1000;
+            for (let k = 0; k < 2; ++k) bumpWeight(10, 9000, 1000); // 10 -> 4
+            window.timesArray = [
+                { time: "2.00", ms: 2000, details: "R U R'", index: 0, case: 10 },
+            ];
+            displayStats();
+        });
+        await clickTrain(app.page); // goal input lives on the practice page
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 4);
+        assert.match(await app.page.evaluate(() => document.getElementById('times').textContent), /\[weight: 4\]/);
+
+        await app.page.fill('#goal_in', '0');
+        await app.page.evaluate(() => document.getElementById('goal_in').dispatchEvent(new Event('change')));
+
+        assert.equal(await app.page.evaluate(() => window.goal), 0);
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 1,
+            'turning dynamic weights off must reset the Selection\'s weights');
+        assert.equal(await app.page.evaluate(() => weightOfCase(20)), 1);
+        const shown = await app.page.evaluate(() => document.getElementById('times').textContent);
+        assert.ok(!shown.includes('[weight:'), `weights printed with the goal off: ${shown}`);
+        assert.match(shown, /2\.00/, `the recorded time disappeared from the list: ${shown}`);
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 1, 'turning the goal off must keep the times history');
+    } finally { await app.close(); }
+});
+
+test('emptying the Goal turns dynamic weights off and resets every Weight', async () => {
+    const app = await openApp();
+    try {
+        await clickTrain(app.page); // goal input lives on the practice page
+        await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); });
+        await app.page.fill('#goal_in', '1000');
+        await app.page.keyboard.press('Tab');
+        await app.page.evaluate(() => { for (let k = 0; k < 2; ++k) bumpWeight(10, 9000, 1000); }); // 10 -> 4
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 4);
+
+        // an empty number input is NaN: the Goal is off, so the Weights are stale
+        await app.page.fill('#goal_in', '');
+        await app.page.keyboard.press('Tab');
+
+        assert.ok(Number.isNaN(await app.page.evaluate(() => window.goal)),
+            `an emptied goal input should leave Goal unset, got ${await app.page.evaluate(() => window.goal)}`);
+        assert.deepEqual(await app.page.evaluate(() => [weightOfCase(10), weightOfCase(20)]), [1, 1],
+            'turning dynamic weights off must reset the Selection\'s weights');
+        const shown = await app.page.evaluate(() => document.getElementById('times').textContent);
+        assert.ok(!shown.includes('[weight:'), `weights printed with the goal off: ${shown}`);
+    } finally { await app.close(); }
+});
+
+test('the "reset weights" link uniformises every Weight and leaves the Selection and times history alone', async () => {
+    const app = await openApp();
+    try {
+        await app.page.evaluate(() => {
+            window.selCases = [10, 20];
+            saveSelection();
+            window.goal = 1000;
+            for (let k = 0; k < 2; ++k) bumpWeight(10, 9000, 1000); // 10 -> 4
+            bumpWeight(20, 9000, 1000);                             // 20 -> 2
+            window.timesArray = [
+                { time: "2.00", ms: 2000, details: "R U R'", index: 0, case: 10 },
+                { time: "3.00", ms: 3000, details: "R U R'", index: 1, case: 20 },
+            ];
+            displayStats();
+        });
+        await clickTrain(app.page); // the link sits beside the goal input on the practice page
+        assert.deepEqual(await app.page.evaluate(() => [weightOfCase(10), weightOfCase(20)]), [4, 2]);
+
+        await app.page.click('#resetWeightsLink');
+
+        assert.deepEqual(await app.page.evaluate(() => [weightOfCase(10), weightOfCase(20)]), [1, 1],
+            'the reset weights link must make every Weight uniform');
+        assert.deepEqual(await selectedCases(app.page), [10, 20],
+            'the reset weights link must not touch the Selection');
+        const times = await app.page.evaluate(() => window.timesArray.map(t => [t.case, t.ms]));
+        assert.deepEqual(times, [[10, 2000], [20, 3000]],
+            'the reset weights link must not touch the times history');
+
+        const shown = await app.page.evaluate(() => document.getElementById('times').textContent);
+        assert.equal((shown.match(/\[weight: 1\]/g) || []).length, 2, `weights not uniformised in the list: ${shown}`);
+        assert.match(shown, /2\.00/, `lost time 1: ${shown}`);
+        assert.match(shown, /3\.00/, `lost time 2: ${shown}`);
+    } finally { await app.close(); }
+});
+
+test('re-committing the same Goal keeps the Weights earned against it', async () => {
+    const app = await openApp();
+    try {
+        await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); });
+        await clickTrain(app.page); // goal input lives on the practice page
+
+        await app.page.fill('#goal_in', '1000');
+        await app.page.keyboard.press('Tab');
+        assert.equal(await app.page.evaluate(() => window.goal), 1000);
+
+        await app.page.evaluate(() => { for (let k = 0; k < 2; ++k) bumpWeight(10, 9000, 1000); }); // 10 -> 4
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 4);
+
+        // blur with no edit still fires change, so an untouched Goal must not reset the contract
+        await app.page.fill('#goal_in', '1000');
+        await app.page.keyboard.press('Tab');
+        assert.deepEqual(await app.page.evaluate(() => [weightOfCase(10), weightOfCase(20)]), [4, 1],
+            'a Goal that did not change must not reset the weights earned against it');
+    } finally { await app.close(); }
+});
+
 test('a punished Case stays drawable: bounded weights never drop a Case from the pool', async () => {
     const app = await openApp();
     try {

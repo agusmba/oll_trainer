@@ -583,6 +583,17 @@ function resetStyle(dark) {
 
 function applyGoal() {
     window.goal = document.querySelector('#goal_in').valueAsNumber;
+    // the Goal is part of the practice contract: every Weight is earned against it,
+    // so it is stale the moment the Goal changes (ADR-0001), including when the Goal
+    // is turned off (0, negative or empty).
+    resetWeights();
+    displayStats();
+}
+
+/// Resets every Weight in the Selection to uniform, from the link beside the goal input.
+/// The only reset that is not destructive: the Selection and the times history survive.
+function applyResetWeights() {
+    resetWeights();
     displayStats();
 }
 

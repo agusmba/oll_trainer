@@ -42,7 +42,7 @@ OLL trainer
                 background <input type='text' value='#f5f5f5' class='settinginput' id='bgcolor_in' onchange="applystyle();" placeholder='#f5f5f5' maxlength='12'/>
               , text <input type='text' value='black' class='settinginput' id='textcolor_in' onchange="applystyle();"  placeholder='#000' maxlength='12'/>
               , links <input type='text' value='#004411' class='settinginput' id='linkscolor_in' onchange="applystyle();"  placeholder='#004411' maxlength='12'/>
-              , goal (ms) <input type='number' value = 0 class='settinginput' id='goal_in' min=0 onchange="applyGoal();" placeholder=0 max=10000 title="Goal in ms to beat in each alg solve. If your time is at or under the goal, the probability of getting the same alg again decreases. If it is slower, the probability increases. Leave this at 0 (default) to keep every selected alg with the same probability."/> (0 or empty to ignore dynamic weights)
+              , goal (ms) <input type='number' value = 0 class='settinginput' id='goal_in' min=0 onchange="applyGoal();" placeholder=0 max=10000 title="Goal in ms to beat in each alg solve. If your time is at or under the goal, the probability of getting the same alg again decreases. If it is slower, the probability increases. Leave this at 0 (default) to keep every selected alg with the same probability."/> (0 or empty to ignore dynamic weights) <a id='resetWeightsLink' onclick='applyResetWeights();' title='Set every selected case back to the same probability. Keeps your selection and your recorded times.'>reset weights</a>
               <br>
 			<span id="last_scramble">
 			Any questions/suggestions/bugs reports - post in <a href="https://www.speedsolving.com/forum/threads/oll-trainer.66924/" target="_blank" class="settings">this thread</a>
@@ -95,13 +95,13 @@ OLL trainer
 
 </body>
 </html>
-<script src="scripts/algsinfo.js?v8"></script>
-<script src="scripts/algsmap.js?v8"></script>
-<script src="scripts/weights.js?v8"></script>
-<script src="scripts/saveload.js?v8"></script>
-<script src="scripts/selection.js?v8"></script>
-<script src="scripts/timer.js?v8"></script>
-<script src="scripts/practice.js?v8"></script>
+<script src="scripts/algsinfo.js?v9"></script>
+<script src="scripts/algsmap.js?v9"></script>
+<script src="scripts/weights.js?v9"></script>
+<script src="scripts/saveload.js?v9"></script>
+<script src="scripts/selection.js?v9"></script>
+<script src="scripts/timer.js?v9"></script>
+<script src="scripts/practice.js?v9"></script>
 <script>
 changeMode(0);
 </script>
