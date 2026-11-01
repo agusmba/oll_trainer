@@ -508,8 +508,8 @@ test('emptying the Goal turns dynamic weights off and resets every Weight', asyn
         await app.page.fill('#goal_in', '');
         await app.page.keyboard.press('Tab');
 
-        assert.ok(Number.isNaN(await app.page.evaluate(() => window.goal)),
-            `an emptied goal input should leave Goal unset, got ${await app.page.evaluate(() => window.goal)}`);
+        assert.equal(await app.page.evaluate(() => window.goal), 0,
+            `an emptied goal input must read as Goal 0 (weights off), got ${await app.page.evaluate(() => window.goal)}`);
         assert.deepEqual(await app.page.evaluate(() => [weightOfCase(10), weightOfCase(20)]), [1, 1],
             'turning dynamic weights off must reset the Selection\'s weights');
         const shown = await app.page.evaluate(() => document.getElementById('times').textContent);
@@ -570,6 +570,42 @@ test('re-committing the same Goal keeps the Weights earned against it', async ()
         await app.page.keyboard.press('Tab');
         assert.deepEqual(await app.page.evaluate(() => [weightOfCase(10), weightOfCase(20)]), [4, 1],
             'a Goal that did not change must not reset the weights earned against it');
+    } finally { await app.close(); }
+});
+
+test('a reload adopts the Goal the goal input shows, so Weights go live again', async () => {
+    const app = await openApp();
+    try {
+        await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); });
+        await clickTrain(app.page);
+        await app.page.fill('#goal_in', '1200');
+        await app.page.keyboard.press('Tab');
+        assert.equal(await app.page.evaluate(() => window.goal), 1200);
+
+        // browsers restore form values across a reload; mimic one
+        await app.page.addInitScript(() => {
+            document.addEventListener('DOMContentLoaded', () => {
+                document.getElementById('goal_in').value = '1200';
+            });
+        });
+        await app.page.reload();
+        await clickTrain(app.page);
+
+        assert.equal(await app.page.evaluate(() => document.getElementById('goal_in').valueAsNumber), 1200);
+        assert.equal(await app.page.evaluate(() => window.goal), 1200,
+            'the Goal in effect must be the Goal the input shows');
+
+        // weights come back uniform, not carried over (ADR-0001), and a solve bumps them
+        assert.deepEqual(await app.page.evaluate(() => [weightOfCase(10), weightOfCase(20)]), [1, 1]);
+        await app.page.evaluate(() => {
+            document.getElementById('timer').innerHTML = '2.00'; // slower than the adopted goal
+            appendStats();
+        });
+        const drawn = await app.page.evaluate(() => window.lastCase);
+        assert.equal(await app.page.evaluate(c => weightOfCase(c), drawn), 2,
+            `a solve after reload must bump against the adopted Goal, got ${await app.page.evaluate(c => weightOfCase(c), drawn)}`);
+        assert.match(await app.page.evaluate(() => document.getElementById('times').textContent), /\[weight: 2\]/,
+            'the times list must print weights again after a reload');
     } finally { await app.close(); }
 });
 

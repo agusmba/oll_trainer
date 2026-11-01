@@ -581,8 +581,14 @@ function resetStyle(dark) {
     savestyle();
 }
 
+/// \returns the Goal held by the goal input; an empty or invalid input reads as 0, meaning dynamic weights off
+function readGoal() {
+    var value = document.querySelector('#goal_in').valueAsNumber;
+    return isNaN(value) ? 0 : value;
+}
+
 function applyGoal() {
-    window.goal = document.querySelector('#goal_in').valueAsNumber;
+    window.goal = readGoal();
     // the Goal is part of the practice contract: every Weight is earned against it,
     // so it is stale the moment the Goal changes (ADR-0001), including when the Goal
     // is turned off (0, negative or empty).
@@ -596,6 +602,19 @@ function applyResetWeights() {
     resetWeights();
     displayStats();
 }
+
+/// The Goal is never app-persisted, but browsers restore form values across a reload, so the
+/// goal input can come back holding the previous Goal. Whatever that input shows once the page
+/// is loaded is the Goal in effect; showing a Goal the app is not using would read as a bug.
+/// Weights stay uniform here: loadSelection() already rebuilt them (ADR-0001).
+function loadGoal() {
+    window.goal = readGoal();
+    displayStats(); // reprint the times list, now that weights may be live again
+}
+
+// restoration timing is up to the browser, so reconcile at load, the latest point that is
+// guaranteed to be after it (and after loadSelection() rebuilt the weights)
+window.addEventListener("load", loadGoal);
 
 // add key listeners to blur settings inputs
 var inputs = document.getElementsByClassName("settinginput");

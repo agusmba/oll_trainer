@@ -13,7 +13,7 @@ The set of cases the user has chosen to practice. Persisted across sessions.
 _Avoid_: selected cases array
 
 **Goal**:
-A target solve time in ms. A solve at or under the Goal beats it. Session-scoped — never persisted.
+A target solve time in ms. A solve at or under the Goal beats it. Session-scoped — never persisted by the app.
 _Avoid_: target, par
 
 **Weight**:
