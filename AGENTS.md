@@ -18,7 +18,7 @@ OLL Trainer is a web-based tool for practicing OLL algorithms in speedcubing. Th
 ### Naming Conventions
 - Use camelCase for variables and functions
 - Function names should use verb prefixes (e.g., `loadSelection`, `saveLocal`)
-- Use descriptive variable names (e.g., `timerActivatingButton`, `recapArray`)
+- Use descriptive variable names (e.g., `timerActivatingButton`, `recapBacklog`)
 
 ### JavaScript Patterns
 - Use localStorage for data persistence

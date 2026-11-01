@@ -22,7 +22,7 @@ export async function openApp() {
     page.on('requestfailed', r => failedRequests.push(`${r.url()} -> ${r.failure?.errorText}`));
 
     await page.goto(APP_URL);
-    await page.waitForTimeout(100); // let the inline changeMode(0) render settle
+    await page.waitForTimeout(100); // let the inline changeMode("selection") render settle
 
     return {
         page,
@@ -67,6 +67,6 @@ export async function clickGroup(page, groupName) {
     await page.click(`#cases_selection td:has(b:text-is("${groupName}"))`);
 }
 
-/// Clicks Train (mode 1) or Recap (mode 2).
-export async function clickTrain(page) { await page.click('#doneButton'); }
+/// Clicks Practice (Practice Mode) or Recap (Recap Mode).
+export async function clickPractice(page) { await page.click('#practiceButton'); }
 export async function clickRecap(page) { await page.click('#recapButton'); }

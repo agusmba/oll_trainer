@@ -13,7 +13,7 @@ OLL trainer
 	<table id="mainTable">
 		<tr>
 			<td id="casesBox" colspan="2">
-                <a id='selectBtn' onclick='changeMode(0)'>select cases</a><span id='selInfo'></span>
+                <a id='selectBtn' onclick='changeMode("selection")'>select cases</a><span id='selInfo'></span>
 			</td>
 		</tr>
 		<tr>
@@ -80,7 +80,7 @@ OLL trainer
             <ul>
                 <li>Click on the picture to select / deselect the case</li>
                 <li>Click on the group header select / deselect all cases in the group</li>
-                <li>When you're ready, click Train or Recap button on the right to start practicing</li>
+                <li>When you're ready, click Practice or Recap button on the right to start practicing</li>
                 <li>Any questions/suggestions/bugs reports - please post in <a target="_blank" href='https://www.speedsolving.com/forum/threads/oll-trainer.66924/'>this thread</a></li>
                 <li>GitHub repo: <a href='https://github.com/Roman-/oll_trainer'>click</a>, download offline version: <a href='https://github.com/Roman-/oll_trainer/archive/master.zip'>zip</a></li>
             </ul>
@@ -88,8 +88,8 @@ OLL trainer
 		<div id="cases_selection">
 		</div>
 		<div class="btns-right">
-            <a class='abutton' id='doneButton' onclick='changeMode(1)' title='Train selected cases randomly'>Train</a> <br>
-            <a class='abutton' id='recapButton' onclick='changeMode(2)'title='Go through all the selected cases once'>Recap</a>
+            <a class='abutton' id='practiceButton' onclick='changeMode("practice")' title='Practice the selected cases'>Practice</a> <br>
+            <a class='abutton' id='recapButton' onclick='changeMode("recap")' title='Go through all the selected cases once'>Recap</a>
 		</div>
 	</div> <!-- selection layout -->
 
@@ -103,7 +103,7 @@ OLL trainer
 <script src="scripts/timer.js?v10"></script>
 <script src="scripts/practice.js?v10"></script>
 <script>
-changeMode(0);
+changeMode("selection");
 </script>
 
 

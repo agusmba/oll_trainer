@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
     openApp, selectedCases, lastCase, isValidScramble, caseCellIds,
-    clickCase, clickGroup, clickTrain, clickRecap,
+    clickCase, clickGroup, clickPractice, clickRecap,
 } from './harness.mjs';
 
 test('app loads with no console errors, page errors or failed requests', async () => {
@@ -71,16 +71,16 @@ test('all/none header toggles 57 cases and updates the counter', async () => {
     } finally { await app.close(); }
 });
 
-test('Train mode renders a legal scramble and enables the timer', async () => {
+test('Practice Mode renders a legal scramble and enables the timer', async () => {
     const app = await openApp();
     try {
-        await clickTrain(app.page);
+        await clickPractice(app.page);
         assert.equal(await app.page.evaluate(() => document.querySelector('.practice_layout').style.display), 'initial');
 
         const { moves, ok } = await isValidScramble(app.page);
         assert.ok(ok, `illegal scramble moves: ${moves.join(' ')}`);
         assert.ok(await app.page.evaluate(() => window.allowStartingTimer));
-        assert.match(await app.page.evaluate(() => document.getElementById('selInfo').textContent), /train mode/);
+        assert.match(await app.page.evaluate(() => document.getElementById('selInfo').textContent), /practice mode/);
     } finally { await app.close(); }
 });
 
@@ -88,7 +88,7 @@ test('empty selection does not start the timer', async () => {
     const app = await openApp();
     try {
         await app.page.evaluate(() => { window.selCases = []; saveSelection(); });
-        await clickTrain(app.page);
+        await clickPractice(app.page);
         assert.match(await app.page.evaluate(() => document.getElementById('scramble').textContent), /select cases/);
         assert.equal(await app.page.evaluate(() => window.allowStartingTimer), false);
     } finally { await app.close(); }
@@ -108,14 +108,14 @@ test('Recap goes through every selected case exactly once', async () => {
 
         assert.deepEqual(seen.slice().sort((a, b) => a - b), sel.slice().sort((a, b) => a - b),
             `recap should cover each selected case once, saw ${seen.join(', ')}`);
-        assert.equal(await app.page.evaluate(() => window.recapArray.length), 0);
+        assert.equal(await app.page.evaluate(() => window.recapBacklog.length), 0);
     } finally { await app.close(); }
 });
 
 test('space starts and stops the timer and records one time', async () => {
     const app = await openApp();
     try {
-        await clickTrain(app.page);
+        await clickPractice(app.page);
 
         await app.page.keyboard.press('Space');
         await app.page.waitForTimeout(300);
@@ -349,7 +349,7 @@ test('the times list is ordered by algsinfo grouping', async () => {
     } finally { await app.close(); }
 });
 
-test('recap solves do not change weights', async () => {
+test('Recap solves do not change Weights, including the last Recap case', async () => {
     const app = await openApp();
     try {
         await app.page.evaluate(() => {
@@ -358,19 +358,53 @@ test('recap solves do not change weights', async () => {
             window.goal = 1000;
         });
 
-        await clickRecap(app.page); // recapArray = [10, 20]
+        await clickRecap(app.page); // Recap backlog = [10, 20]
         for (let k = 0; k < 2; ++k) {
-            if (k > 0) await app.page.evaluate(() => showScramble()); // second solve empties recapArray
+            if (k > 0) await app.page.evaluate(() => showScramble()); // second draw empties the backlog
             // slow solve of a still-selected case
             await app.page.evaluate(() => {
-                document.getElementById('timer').innerHTML = '2.00'; // 2000 ms, slower than goal
+                document.getElementById('timer').innerHTML = '2.00'; // 2000 ms, slower than the Goal
                 appendStats();
             });
+            assert.match(await app.page.evaluate(() => document.getElementById('selInfo').textContent),
+                /recap mode/, `Mode left Recap before its last solve was recorded (k=${k})`);
         }
 
         const weights = await app.page.evaluate(() => [weightOfCase(10), weightOfCase(20)]);
         assert.deepEqual(weights, [1, 1],
-            `recap changed weights: ${weights.join(', ')} (last recap solve runs with recapArray empty)`);
+            `Recap changed Weights: ${weights.join(', ')} (the last Recap solve runs on an empty backlog)`);
+    } finally { await app.close(); }
+});
+
+test('Recap ends after its last solve and Practice resumes bumping Weights', async () => {
+    const app = await openApp();
+    try {
+        await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
+        await clickRecap(app.page);
+
+        // replay every selected Case; the last Recap solve must still not touch Weights
+        for (let k = 0; k < 2; ++k) {
+            if (k > 0) await app.page.evaluate(() => showScramble()); // second draw empties the backlog
+            await app.page.evaluate(() => {
+                document.getElementById('timer').innerHTML = '2.00'; // slower than the Goal
+                appendStats();
+            });
+        }
+        assert.deepEqual(await app.page.evaluate(() => [weightOfCase(10), weightOfCase(20)]), [1, 1],
+            `a Recap solve touched Weights: ${await app.page.evaluate(() => [weightOfCase(10), weightOfCase(20)].join(', '))}`);
+
+        // the next draw is Practice, and the info line says so
+        await app.page.evaluate(() => showScramble());
+        assert.match(await app.page.evaluate(() => document.getElementById('selInfo').textContent), /practice mode/,
+            'the info line must agree with what the draw is doing once Recap ends');
+
+        await app.page.evaluate(() => {
+            document.getElementById('timer').innerHTML = '2.00';
+            appendStats();
+        });
+        const drawn = await lastCase(app.page);
+        assert.equal(await app.page.evaluate(c => weightOfCase(c), drawn), 2,
+            `Practice draws must resume bumping Weights after Recap, got ${await app.page.evaluate(c => weightOfCase(c), drawn)}`);
     } finally { await app.close(); }
 });
 
@@ -378,7 +412,7 @@ test('a recorded Practice solve bumps the last Case weight', async () => {
     const app = await openApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
-        await clickTrain(app.page);
+        await clickPractice(app.page);
 
         // slow solve of the drawn Case -> miss, weight doubles
         const drawn = await app.page.evaluate(() => {
@@ -393,7 +427,7 @@ test('a recorded Practice solve bumps the last Case weight', async () => {
     } finally { await app.close(); }
 });
 
-test('train draws are weighted by Weight, and never draw a Case outside the Selection', async () => {
+test('Practice draws are weighted by Weight, and never draw a Case outside the Selection', async () => {
     const app = await openApp();
     try {
         await app.page.evaluate(() => {
@@ -403,7 +437,7 @@ test('train draws are weighted by Weight, and never draw a Case outside the Sele
             for (let k = 0; k < 20; ++k) bumpWeight(10, 9000, 1000); // 10 at the ceiling
             for (let k = 0; k < 20; ++k) bumpWeight(20, 100, 1000); // 20 at the floor
         });
-        await clickTrain(app.page);
+        await clickPractice(app.page);
 
         const drawn = await app.page.evaluate(() => {
             const out = [];
@@ -433,7 +467,7 @@ test('changing the Selection and clearing the session reset every weight', async
             'a deselected Case has no weight');
 
         await app.page.evaluate(() => bumpWeight(10, 9000, 1000)); // 10 -> 2 again
-        await clickTrain(app.page);
+        await clickPractice(app.page);
         await app.page.evaluate(() => {
             document.getElementById('timer').innerHTML = '2.00'; // slower than the goal
             appendStats();
@@ -450,7 +484,7 @@ test('applying a new Goal resets every Weight in the Selection', async () => {
     const app = await openApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
-        await clickTrain(app.page); // goal input lives on the practice page
+        await clickPractice(app.page); // goal input lives on the practice page
         await app.page.evaluate(() => { for (let k = 0; k < 2; ++k) bumpWeight(10, 9000, 1000); }); // 10 -> 4
         assert.equal(await app.page.evaluate(() => weightOfCase(10)), 4);
 
@@ -476,7 +510,7 @@ test('turning the Goal off (0) resets every Weight and stops printing weights', 
             ];
             displayStats();
         });
-        await clickTrain(app.page); // goal input lives on the practice page
+        await clickPractice(app.page); // goal input lives on the practice page
         assert.equal(await app.page.evaluate(() => weightOfCase(10)), 4);
         assert.match(await app.page.evaluate(() => document.getElementById('times').textContent), /\[weight: 4\]/);
 
@@ -497,7 +531,7 @@ test('turning the Goal off (0) resets every Weight and stops printing weights', 
 test('emptying the Goal turns dynamic weights off and resets every Weight', async () => {
     const app = await openApp();
     try {
-        await clickTrain(app.page); // goal input lives on the practice page
+        await clickPractice(app.page); // goal input lives on the practice page
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); });
         await app.page.fill('#goal_in', '1000');
         await app.page.keyboard.press('Tab');
@@ -532,7 +566,7 @@ test('the "reset weights" link uniformises every Weight and leaves the Selection
             ];
             displayStats();
         });
-        await clickTrain(app.page); // the link sits beside the goal input on the practice page
+        await clickPractice(app.page); // the link sits beside the goal input on the practice page
         assert.deepEqual(await app.page.evaluate(() => [weightOfCase(10), weightOfCase(20)]), [4, 2]);
 
         await app.page.click('#resetWeightsLink');
@@ -556,7 +590,7 @@ test('re-committing the same Goal keeps the Weights earned against it', async ()
     const app = await openApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); });
-        await clickTrain(app.page); // goal input lives on the practice page
+        await clickPractice(app.page); // goal input lives on the practice page
 
         await app.page.fill('#goal_in', '1000');
         await app.page.keyboard.press('Tab');
@@ -577,7 +611,7 @@ test('a reload adopts the Goal the goal input shows, so Weights go live again', 
     const app = await openApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); });
-        await clickTrain(app.page);
+        await clickPractice(app.page);
         await app.page.fill('#goal_in', '1200');
         await app.page.keyboard.press('Tab');
         assert.equal(await app.page.evaluate(() => window.goal), 1200);
@@ -589,7 +623,7 @@ test('a reload adopts the Goal the goal input shows, so Weights go live again', 
             });
         });
         await app.page.reload();
-        await clickTrain(app.page);
+        await clickPractice(app.page);
 
         assert.equal(await app.page.evaluate(() => document.getElementById('goal_in').valueAsNumber), 1200);
         assert.equal(await app.page.evaluate(() => window.goal), 1200,

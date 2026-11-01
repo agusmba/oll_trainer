@@ -46,10 +46,10 @@ function confirmUnsel(i) {
 
 function displayPracticeInfo() {
     var s = "";
-    if (window.recapArray.length == 0)
-        s += " | train mode: <b>" + window.selCases.length + "</b> cases selected";
+    if (window.mode == "recap")
+        s += " | recap mode: <b>" + window.recapBacklog.length + "</b> cases left";
     else
-        s += " | recap mode: <b>" + window.recapArray.length + "</b> cases left";
+        s += " | practice mode: <b>" + window.selCases.length + "</b> cases selected";
 
     document.getElementById("selInfo").innerHTML = s;
 }
@@ -59,19 +59,26 @@ function generateScramble()
     if (window.lastScramble != "")
         document.getElementById("last_scramble").innerHTML = "last scramble: " + window.lastScramble +
             " <span onclick='displayBox(event,"+lastCase+")' class='ollNameStats'>("+algsInfo[lastCase]["name"] + ") </span><a class='settings' onclick='confirmUnsel("+lastCase+")' style='color:"+document.getElementById( "linkscolor_in" ).value+";'>unselect</a>";
-    displayPracticeInfo();
     // get random case
     var caseNum = 0;
-    if (recapArray.length == 0) { // train
-        caseNum = pickWeightedCase(window.selCases);
-    } else { // recap
-        // select the case
-        caseNum = randomElement(window.recapArray);
-        // remove it from the array
-        const index = window.recapArray.indexOf(caseNum);
-        window.recapArray.splice(index, 1);
-
+    if (window.mode == "recap" && window.recapBacklog.length == 0) {
+        // Recap's backlog is empty, so Recap is over: the solve that just ran was its
+        // last Recap solve (Weights were not touched), and the draw from here is Practice.
+        setMode("practice");
     }
+
+    if (window.mode == "recap") {
+        // select the case
+        caseNum = randomElement(window.recapBacklog);
+        // remove it from the backlog
+        const index = window.recapBacklog.indexOf(caseNum);
+        window.recapBacklog.splice(index, 1);
+
+    } else { // practice
+        caseNum = pickWeightedCase(window.selCases);
+    }
+    // read Mode after the draw decided it, so the info line agrees with what is on screen
+    displayPracticeInfo();
     var alg = inverse_scramble(randomElement(window.ollMap[caseNum]));
     var rotation = randomElement(["", "y", "y2", "y'"]);
     var finalAlg = applyRotationForAlgorithm(alg, rotation);
@@ -351,8 +358,9 @@ function appendStats()
     // assuming the time can be grabbed from timer label, and the case - window.lastCase
     var result = makeResultInstance();
     window.timesArray.push(result);
-    // weights steer train selection; recap replays past solves, so it must not skew them
-    if (!window.recapInProgress) bumpWeight(window.lastCase, result.ms, window.goal);
+    // Practice steers the draw by Weight; Recap replays the Selection, so its solves
+    // must not skew the Weights earned against the Goal.
+    if (window.mode == "practice") bumpWeight(window.lastCase, result.ms, window.goal);
     displayStats();
 }
 
