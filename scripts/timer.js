@@ -30,36 +30,6 @@ function randomElement(arr)
     return arr[Math.floor(Math.random()*arr.length)];
 }
 
-// https://stackoverflow.com/a/55671924
-function randomWeightedElement(items, weights) {
-    var i;
-    var cumulative = weights.slice(); // don't want to modify the original weights
-
-    for (i = 1; i < cumulative.length; i++)
-        cumulative[i] += cumulative[i - 1];
-    
-    var random = Math.random() * cumulative[cumulative.length - 1];
-    
-    for (i = 0; i < cumulative.length; i++)
-        if (cumulative[i] > random)
-            break;
-    
-    return items[i];
-}
-
-function updateSelectedWeights(ms)
-{
-    // goal <= 0 means dynamic weights are off (0 is the default, negative is unreachable in the UI)
-    if (isNaN(window.goal) || window.goal <= 0) return;
-
-    const index = window.selCases.indexOf(window.lastCase);
-    if (index < 0) return; // the last case is no longer part of the selection
-
-    // a solve at or under the goal beats it, so its weight halves; a slower one doubles
-    if (ms > window.goal) window.selCasesWeights[index] *= 2;
-    else window.selCasesWeights[index] /= 2;
-}
-
 function confirmUnsel(i) {
     if (confirm("Do you want to unselect this case?")) {
         var index = window.selCases.indexOf(i);
@@ -93,7 +63,7 @@ function generateScramble()
     // get random case
     var caseNum = 0;
     if (recapArray.length == 0) { // train
-        caseNum = randomWeightedElement(window.selCases, window.selCasesWeights);
+        caseNum = pickWeightedCase(window.selCases);
     } else { // recap
         // select the case
         caseNum = randomElement(window.recapArray);
@@ -382,7 +352,7 @@ function appendStats()
     var result = makeResultInstance();
     window.timesArray.push(result);
     // weights steer train selection; recap replays past solves, so it must not skew them
-    if (!window.recapInProgress) updateSelectedWeights(result.ms);
+    if (!window.recapInProgress) bumpWeight(window.lastCase, result.ms, window.goal);
     displayStats();
 }
 
@@ -423,7 +393,7 @@ function confirmClear()
 {
     if (confirm("Are you sure you want to clear session?")) {
         window.timesArray = [];
-        initializeSelCasesWeights();
+        resetWeights();
         document.getElementById('infoHeader').innerHTML = ('')
         displayStats();
     }
@@ -500,9 +470,9 @@ function displayStats()
             var timesString = "";
             var meanForCase = 0.0;
             var i = 0;
-            var weightIndex = window.selCases.indexOf(parseInt(oll));
-            if (!isNaN(window.goal) && window.goal > 0 && weightIndex >= 0)
-                timesString += "[weight: " + window.selCasesWeights[weightIndex] + "] ";
+            var weight = weightOfCase(parseInt(oll));
+            if (goalActive(window.goal) && weight !== null)
+                timesString += "[weight: " + weight + "] ";
             for (; i < resultsByCase[oll].length; i++)
             {
                 timesString += makeHtmlDisplayableTime(resultsByCase[oll][i]);

@@ -27,13 +27,9 @@ function loadLocal(name, defaultValue) {
     }
 }
 
-function initializeSelCasesWeights() {
-    window.selCasesWeights = new Array(window.selCases.length).fill(1);
-}
-
 function saveSelection() {
-    // we re-initialize the weights on selection change (save)
-    initializeSelCasesWeights();
+    // Weights are earned against the current Selection, so a selection change resets them
+    resetWeights();
     return saveLocal('ollSelection', JSON.stringify(window.selCases));
 }
 

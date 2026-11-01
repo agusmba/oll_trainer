@@ -146,25 +146,31 @@ test('empty localStorage does not break the stats list', async () => {
     } finally { await app.close(); }
 });
 
-test('goal adjusts the weight of the last case; goal 0 leaves weights alone', async () => {
+test('a selected Case has weight 1; an unselected Case has no weight', async () => {
     const app = await openApp();
     try {
-        await app.page.evaluate(() => {
-            window.selCases = [10, 20];
-            saveSelection();
-            window.lastCase = 10;
-            window.goal = 1000;
-        });
+        await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); });
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 1);
+        assert.equal(await app.page.evaluate(() => weightOfCase(20)), 1);
+        assert.equal(await app.page.evaluate(() => weightOfCase(31)), null,
+            'a Case outside the Selection must have no weight');
+    } finally { await app.close(); }
+});
 
-        await app.page.evaluate(() => updateSelectedWeights(2000)); // slower than goal -> weight doubles
-        assert.equal(await app.page.evaluate(() => window.selCasesWeights[0]), 2);
-        assert.equal(await app.page.evaluate(() => window.selCasesWeights[1]), 1);
+test('a solve slower than the Goal doubles the Case weight; a faster one halves it', async () => {
+    const app = await openApp();
+    try {
+        await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
 
-        await app.page.evaluate(() => updateSelectedWeights(500)); // faster than goal -> weight halves
-        assert.equal(await app.page.evaluate(() => window.selCasesWeights[0]), 1);
+        await app.page.evaluate(() => bumpWeight(10, 2000, window.goal)); // slower than goal -> missed
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 2,
+            'a miss should double the weight');
+        assert.equal(await app.page.evaluate(() => weightOfCase(20)), 1,
+            'a Case that did not solve keeps its weight');
 
-        await app.page.evaluate(() => { window.goal = 0; updateSelectedWeights(9000); });
-        assert.deepEqual(await app.page.evaluate(() => window.selCasesWeights.slice()), [1, 1]);
+        await app.page.evaluate(() => bumpWeight(10, 500, window.goal)); // faster than goal -> beaten
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 1,
+            'a beat should halve the weight');
     } finally { await app.close(); }
 });
 
@@ -174,63 +180,133 @@ test('a time equal to the goal halves the weight ("faster or equal" beats the go
         await app.page.evaluate(() => {
             window.selCases = [10, 20];
             saveSelection();
-            window.lastCase = 10;
             window.goal = 1000;
         });
 
-        await app.page.evaluate(() => updateSelectedWeights(1000)); // exactly the goal -> beaten
-        assert.equal(await app.page.evaluate(() => window.selCasesWeights[0]), 0.5,
-            `a solve at exactly the goal should halve its weight, got ${await app.page.evaluate(() => window.selCasesWeights[0])}`);
+        await app.page.evaluate(() => bumpWeight(10, 1000, 1000)); // exactly the goal -> beaten
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 0.5,
+            `a solve at exactly the goal should halve its weight, got ${await app.page.evaluate(() => weightOfCase(10))}`);
     } finally { await app.close(); }
 });
 
-test('a negative goal leaves weights alone', async () => {
+test('weights saturate at 8 and bottom out at 1/8, so no case dominates or vanishes', async () => {
+    const app = await openApp();
+    try {
+        await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
+
+        // long slow streak: punishment stops at the ceiling
+        await app.page.evaluate(() => { for (let k = 0; k < 20; ++k) bumpWeight(10, 9000, 1000); });
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 8,
+            `slow streak should saturate at the ceiling, got ${await app.page.evaluate(() => weightOfCase(10))}`);
+
+        // long goal-beating streak: punishment stops at the floor
+        await app.page.evaluate(() => { for (let k = 0; k < 20; ++k) bumpWeight(20, 100, 1000); });
+        assert.equal(await app.page.evaluate(() => weightOfCase(20)), 0.125,
+            `fast streak should bottom out at 1/8, got ${await app.page.evaluate(() => weightOfCase(20))}`);
+
+        // one slow solve climbs back off the floor: punishment stays recoverable
+        await app.page.evaluate(() => bumpWeight(20, 9000, 1000));
+        assert.equal(await app.page.evaluate(() => weightOfCase(20)), 0.25);
+    } finally { await app.close(); }
+});
+
+test('a Goal of 0 or a negative Goal leaves weights alone', async () => {
     const app = await openApp();
     try {
         await app.page.evaluate(() => {
             window.selCases = [10, 20];
             saveSelection();
-            window.lastCase = 10;
-            window.goal = -500; // number input has no min, so this is reachable
         });
 
-        await app.page.evaluate(() => updateSelectedWeights(2000));
-        assert.deepEqual(await app.page.evaluate(() => window.selCasesWeights.slice()), [1, 1],
-            `a negative goal must disable dynamic weights, got ${await app.page.evaluate(() => window.selCasesWeights.slice().join(', '))}`);
+        // number input has no min, so a negative goal is reachable
+        await app.page.evaluate(() => { bumpWeight(10, 2000, 0); bumpWeight(20, 2000, -500); });
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 1, 'goal 0 must disable dynamic weights');
+        assert.equal(await app.page.evaluate(() => weightOfCase(20)), 1, 'a negative goal must disable dynamic weights');
     } finally { await app.close(); }
 });
 
-test('weights of a case outside the current selection are not touched', async () => {
-    const app = await openApp();
-    try {
-        await app.page.evaluate(() => {
-            window.selCases = [10, 20];
-            saveSelection();
-            window.lastCase = 31; // solved earlier, no longer selected
-            window.goal = 1000;
-        });
-
-        await app.page.evaluate(() => updateSelectedWeights(2000));
-        const weights = await app.page.evaluate(() => ({
-            values: window.selCasesWeights.slice(),
-            keys: Object.keys(window.selCasesWeights),
-        }));
-        assert.deepEqual(weights.values, [1, 1], `weights changed: ${weights.values.join(', ')}`);
-        assert.deepEqual(weights.keys, ['0', '1'],
-            `a weight was written at an out-of-range index: ${weights.keys.join(', ')}`);
-    } finally { await app.close(); }
-});
-
-test('the times list never prints an undefined weight', async () => {
+test('bumping a Case outside the Selection is a no-op', async () => {
     const app = await openApp();
     try {
         await app.page.evaluate(() => {
             window.selCases = [10, 20];
             saveSelection();
             window.goal = 1000;
+        });
+
+        // a Case solved earlier, no longer selected
+        await app.page.evaluate(() => bumpWeight(31, 2000, 1000));
+        assert.equal(await app.page.evaluate(() => weightOfCase(31)), null,
+            'a Case outside the Selection must not gain a weight');
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 1, 'selected Case weight changed');
+        assert.equal(await app.page.evaluate(() => weightOfCase(20)), 1, 'selected Case weight changed');
+    } finally { await app.close(); }
+});
+
+test('pickWeightedCase draws over the Selection by Weight, deterministically for a given rng', async () => {
+    const app = await openApp();
+    try {
+        await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
+        await app.page.evaluate(() => { for (let k = 0; k < 2; ++k) bumpWeight(20, 9000, 1000); }); // 10 -> 1, 20 -> 4
+
+        // weights are normalised implicitly: case 10 covers the first 1/5 of the draw
+        const picks = await app.page.evaluate(() => [
+            pickWeightedCase(window.selCases, () => 0),
+            pickWeightedCase(window.selCases, () => 0.19),
+            pickWeightedCase(window.selCases, () => 0.25),
+            pickWeightedCase(window.selCases, () => 0.99),
+        ]);
+        assert.deepEqual(picks, [10, 10, 20, 20], `weighted draw was ${picks.join(', ')}`);
+
+        assert.equal(await app.page.evaluate(() => pickWeightedCase([], () => 0.5)), null,
+            'an empty Selection must draw no Case');
+    } finally { await app.close(); }
+});
+
+test('pickWeightedCase never draws a Case with no Weight', async () => {
+    const app = await openApp();
+    try {
+        await app.page.evaluate(() => { window.selCases = [10]; saveSelection(); });
+        // 31 is not in the Selection, so it has no Weight and must not be drawn
+        const picks = await app.page.evaluate(() => {
+            const out = [];
+            for (let k = 0; k < 10; ++k) out.push(pickWeightedCase([10, 31], () => 0.2 + k / 20));
+            return out;
+        });
+        assert.deepEqual(picks, Array(10).fill(10), `unselected Case was drawn: ${picks.join(', ')}`);
+    } finally { await app.close(); }
+});
+
+test('the heavier Case is drawn wherever it sits in the Selection', async () => {
+    const app = await openApp();
+    try {
+        // weights are keyed by Case, so Selection order is irrelevant
+        await app.page.evaluate(() => { window.selCases = [20, 10]; saveSelection(); window.goal = 1000; });
+        await app.page.evaluate(() => { for (let k = 0; k < 2; ++k) bumpWeight(10, 9000, 1000); }); // 10 -> 4, 20 -> 1
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 4);
+
+        // total 5: the last 4/5 of the draw belongs to case 10, which sits second here
+        const picks = await app.page.evaluate(() => [
+            pickWeightedCase(window.selCases, () => 0.25),
+            pickWeightedCase(window.selCases, () => 0.4),
+            pickWeightedCase(window.selCases, () => 0.99),
+        ]);
+        assert.deepEqual(picks, [10, 10, 10], `heavier Case not drawn: ${picks.join(', ')}`);
+    } finally { await app.close(); }
+});
+
+test('the times list prints "[weight: N]" only when a Goal is set and the Case is selected', async () => {
+    const app = await openApp();
+    try {
+        await app.page.evaluate(() => {
+            window.selCases = [10, 20];
+            saveSelection();
+            window.goal = 1000;
+            bumpWeight(20, 9000, 1000); // case 20 missed, weight 2
             window.timesArray = [
                 { time: "1.00", ms: 1000, details: "R U R'", index: 0, case: 10 },
-                { time: "2.00", ms: 2000, details: "R U R'", index: 1, case: 31 }, // no longer selected
+                { time: "1.50", ms: 1500, details: "R U R'", index: 1, case: 20 },
+                { time: "2.00", ms: 2000, details: "R U R'", index: 2, case: 31 }, // no longer selected
             ];
             displayStats();
         });
@@ -238,6 +314,14 @@ test('the times list never prints an undefined weight', async () => {
         const shown = await app.page.evaluate(() => document.getElementById('times').textContent);
         assert.ok(!shown.includes('undefined'), `times list shows an undefined weight: ${shown}`);
         assert.match(shown, /\[weight: 1\]/, `selected case should show its weight: ${shown}`);
+        assert.match(shown, /\[weight: 2\]/, `bumped case should show its weight: ${shown}`);
+        assert.equal((shown.match(/\[weight:/g) || []).length, 2,
+            `an unselected Case printed a weight: ${shown}`);
+
+        // goal off -> no weights printed at all
+        await app.page.evaluate(() => { window.goal = 0; displayStats(); });
+        const off = await app.page.evaluate(() => document.getElementById('times').textContent);
+        assert.ok(!off.includes('[weight:'), `weights printed with the goal off: ${off}`);
     } finally { await app.close(); }
 });
 
@@ -284,20 +368,101 @@ test('recap solves do not change weights', async () => {
             });
         }
 
-        const weights = await app.page.evaluate(() => window.selCasesWeights.slice());
+        const weights = await app.page.evaluate(() => [weightOfCase(10), weightOfCase(20)]);
         assert.deepEqual(weights, [1, 1],
             `recap changed weights: ${weights.join(', ')} (last recap solve runs with recapArray empty)`);
     } finally { await app.close(); }
 });
 
-test('zero-weight cases are never picked by randomWeightedElement', async () => {
+test('a recorded Practice solve bumps the last Case weight', async () => {
     const app = await openApp();
     try {
-        const picks = await app.page.evaluate(() => {
+        await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
+        await clickTrain(app.page);
+
+        // slow solve of the drawn Case -> miss, weight doubles
+        const drawn = await app.page.evaluate(() => {
+            document.getElementById('timer').innerHTML = '2.00'; // 2000 ms, slower than the goal
+            appendStats();
+            return window.lastCase;
+        });
+        assert.equal(await app.page.evaluate(c => weightOfCase(c), drawn), 2,
+            `a miss should double the drawn Case weight, got ${await app.page.evaluate(c => weightOfCase(c), drawn)}`);
+        assert.equal(await app.page.evaluate(c => weightOfCase(c == 10 ? 20 : 10), drawn), 1,
+            'the Case that did not solve keeps its weight');
+    } finally { await app.close(); }
+});
+
+test('train draws are weighted by Weight, and never draw a Case outside the Selection', async () => {
+    const app = await openApp();
+    try {
+        await app.page.evaluate(() => {
+            window.selCases = [10, 20];
+            saveSelection();
+            window.goal = 1000;
+            for (let k = 0; k < 20; ++k) bumpWeight(10, 9000, 1000); // 10 at the ceiling
+            for (let k = 0; k < 20; ++k) bumpWeight(20, 100, 1000); // 20 at the floor
+        });
+        await clickTrain(app.page);
+
+        const drawn = await app.page.evaluate(() => {
             const out = [];
-            for (let k = 0; k < 50; ++k) out.push(randomWeightedElement([10, 20], [0, 1]));
+            for (let k = 0; k < 300; ++k) { showScramble(); out.push(window.lastCase); }
             return out;
         });
-        assert.deepEqual(picks, Array(50).fill(20), `zero-weight case was picked: ${picks.join(', ')}`);
+        assert.ok(drawn.every(c => c == 10 || c == 20), `drew a Case outside the Selection: ${drawn.join(', ')}`);
+        const punished = drawn.filter(c => c == 20).length;
+        assert.ok(punished > 0, 'the punished Case vanished from the draw');
+        assert.ok(drawn.length - punished > punished * 2,
+            `the ceiling Case does not dominate the draw: ${drawn.length - punished}/300 for case 10`);
+    } finally { await app.close(); }
+});
+
+test('changing the Selection and clearing the session reset every weight', async () => {
+    const app = await openApp();
+    try {
+        app.page.on('dialog', d => d.accept());
+        await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
+        await app.page.evaluate(() => { for (let k = 0; k < 2; ++k) bumpWeight(10, 9000, 1000); }); // 10 -> 4
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 4);
+
+        await clickCase(app.page, 20); // deselect 20: the practice contract changed
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 1,
+            'a selection change must reset every weight');
+        assert.equal(await app.page.evaluate(() => weightOfCase(20)), null,
+            'a deselected Case has no weight');
+
+        await app.page.evaluate(() => bumpWeight(10, 9000, 1000)); // 10 -> 2 again
+        await clickTrain(app.page);
+        await app.page.evaluate(() => {
+            document.getElementById('timer').innerHTML = '2.00'; // slower than the goal
+            appendStats();
+        });
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 4, 'solve did not bump through the module');
+        await app.page.click('#stats a:has-text("clear")'); // clear session
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 0, 'session was not cleared');
+        assert.equal(await app.page.evaluate(() => weightOfCase(10)), 1,
+            'clearing the session must reset every weight');
+    } finally { await app.close(); }
+});
+
+test('a punished Case stays drawable: bounded weights never drop a Case from the pool', async () => {
+    const app = await openApp();
+    try {
+        await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
+        await app.page.evaluate(() => {
+            for (let k = 0; k < 20; ++k) bumpWeight(10, 9000, 1000); // 10 at the ceiling
+            for (let k = 0; k < 20; ++k) bumpWeight(20, 100, 1000); // 20 at the floor
+        });
+
+        const picks = await app.page.evaluate(() => {
+            const out = [];
+            for (let k = 0; k < 600; ++k) out.push(pickWeightedCase(window.selCases));
+            return out;
+        });
+        const punished = picks.filter(c => c == 20).length;
+        assert.ok(punished > 0, 'the goal-beaten Case vanished from the draw entirely');
+        assert.ok(picks.length - punished > punished,
+            `the punished Case still dominates the draw: ${punished}/600`);
     } finally { await app.close(); }
 });
