@@ -6,7 +6,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-    openApp, selectedCases, lastCase, isValidScramble, caseCellIds,
+    openApp, selectedCases, lastCase, isValidScramble, caseCellIds, brokenImages,
     clickCase, clickGroup, clickPractice, clickRecap,
 } from './harness.mjs';
 import { serveRepo } from './server.mjs';
@@ -27,10 +27,7 @@ test('app loads over an http:// origin with no console errors, page errors or fa
         const cells = await caseCellIds(app.page);
         assert.equal(cells.length, 57, `expected 57 case cells, got ${cells.length}`);
 
-        const brokenImgs = await app.page.evaluate(() =>
-            [...document.querySelectorAll('#cases_selection img')]
-                .filter(img => !img.complete || img.naturalWidth === 0)
-                .map(img => img.src));
+        const brokenImgs = await brokenImages(app.page);
         assert.equal(brokenImgs.length, 0, `broken case images: ${brokenImgs.join(', ')}`);
     } finally { await app.close(); }
 });

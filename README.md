@@ -26,6 +26,7 @@ part of it.
 
 - `npm run browser:install` — fetch the headless chromium the suite needs (once)
 - `npm test` — headless browser tests plus the cache-bust tests
+- `npm run test:live` — the same harness against the hosted site; opt-in, so `npm test` skips those tests when no deployment is under test
 - `npm run bump-version` / `npm run bump-version:check` — raise the `?vN` asset versions in
   `index.html`, one bump per changed directory per branch
 

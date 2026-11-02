@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { openServedApp, selectedCases, clickCase, caseCellIds } from './harness.mjs';
+import { openServedApp, selectedCases, clickCase, caseCellIds, brokenImages } from './harness.mjs';
 
 test('the app is served raw under a Pages-style subpath with no errors', async () => {
     const app = await openServedApp({ prefix: '/oll/' });
@@ -37,10 +37,7 @@ test('case pictures are served as SVG, so the case list renders them', async () 
         assert.match(svg.headers()['content-type'] ?? '', /image\/svg\+xml/,
             `case picture served as ${svg.headers()['content-type']}`);
 
-        const brokenImgs = await app.page.evaluate(() =>
-            [...document.querySelectorAll('#cases_selection img')]
-                .filter(img => !img.complete || img.naturalWidth === 0)
-                .map(img => img.src));
+        const brokenImgs = await brokenImages(app.page);
         assert.equal(brokenImgs.length, 0, `broken case images: ${brokenImgs.join(', ')}`);
     } finally { await app.close(); }
 });

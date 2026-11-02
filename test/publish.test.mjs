@@ -4,11 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { openServedApp, sidebarHref } from './harness.mjs';
+import { openServedApp, sidebarHref, HOSTED_URL } from './harness.mjs';
 
 const FORK_REPO = 'https://github.com/agusmba/oll_trainer';
 const UPSTREAM_REPO = 'https://github.com/Roman-/oll_trainer';
-const HOSTED_URL = 'https://agusmba.github.io/oll_trainer/';
 
 /// hrefs of every anchor on the page.
 function pageLinks(page) {

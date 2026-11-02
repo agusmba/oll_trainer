@@ -12,6 +12,9 @@ import { serveRepo } from './server.mjs';
 
 const APP_URL = pathToFileURL(path.resolve(process.cwd(), 'index.html')).href;
 
+// The published origin: where GitHub Pages serves trunk of the fork.
+export const HOSTED_URL = 'https://agusmba.github.io/oll_trainer/';
+
 /// \returns { page, browser, errors, failedRequests, close }
 export async function openApp({ url = APP_URL } = {}) {
     const browser = await chromium.launch();
@@ -85,6 +88,14 @@ export async function clickGroup(page, groupName) {
 /// Clicks Practice (Practice Mode) or Recap (Recap Mode).
 export async function clickPractice(page) { await page.click('#practiceButton'); }
 export async function clickRecap(page) { await page.click('#recapButton'); }
+
+/// Case pictures that never rendered, by src.
+export function brokenImages(page) {
+    return page.evaluate(() =>
+        [...document.querySelectorAll('#cases_selection img')]
+            .filter(img => !img.complete || img.naturalWidth === 0)
+            .map(img => img.src));
+}
 
 /// \returns href of the sidebar anchor whose visible text is `label`, or null if absent.
 export function sidebarHref(page, label) {
