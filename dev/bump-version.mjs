@@ -4,7 +4,8 @@
 // already-loaded browsers when its ?vN query changes. The rule this module
 // enforces: a branch may raise a version by exactly ONE over the version in
 // trunk at the branch point. A long-lived branch never raises it again; the
-// single bump lands in trunk at merge, and trunk becomes the next base.
+// single bump lands in trunk at merge, and trunk becomes the next base. Work
+// committed straight on trunk raises by exactly ONE over trunk's HEAD instead.
 //
 // Versions live in index.html, grouped by asset directory (scripts/, styles/).
 // A group is bumped only when files in that directory changed since the branch
@@ -74,16 +75,14 @@ export function bumpVersion({ cwd = process.cwd(), dryRun = false } = {}) {
     }
 
     const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], root).trim();
-    if (branch === trunk || branch === 'HEAD') {
-        return {
-            status: 'trunk',
-            message: `HEAD is on ${trunk} (or detached): versions are bumped on branches, never on trunk`,
-            trunk, base: git(['rev-parse', 'HEAD'], root).trim(), entries: [],
-        };
-    }
+    const onTrunk = branch === trunk || branch === 'HEAD';
 
-    // The branch point in trunk — the base a branch is allowed exactly one bump over.
-    const base = git(['merge-base', 'HEAD', trunk], root).trim();
+    // The base a bump is measured over: a branch's branch point in trunk, or
+    // trunk's own HEAD when work lands directly on trunk. Once a bump is
+    // committed, that commit is the next base.
+    const base = onTrunk
+        ? git(['rev-parse', 'HEAD'], root).trim()
+        : git(['merge-base', 'HEAD', trunk], root).trim();
 
     const html = fs.readFileSync(path.join(root, INDEX_HTML), 'utf8');
     const current = assetVersions(html);
@@ -108,7 +107,7 @@ export function bumpVersion({ cwd = process.cwd(), dryRun = false } = {}) {
         const targets = new Map(entries.map(e => [e.dir, e.target]));
         fs.writeFileSync(path.join(root, INDEX_HTML), rewriteVersions(html, targets));
     }
-    return { status: needsChange ? 'changed' : 'already-bumped', trunk, base, entries, applied: !dryRun && needsChange };
+    return { status: needsChange ? 'changed' : 'already-bumped', trunk, base, onTrunk, entries, applied: !dryRun && needsChange };
 }
 
 function describe(entry) {
@@ -131,7 +130,11 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     }
     for (const entry of result.entries) console.log(describe(entry));
 
-    if (result.status === 'already-bumped') console.log(`versions already correct for ${result.trunk} + 1`);
+    if (result.status === 'already-bumped') {
+        console.log(result.onTrunk
+            ? `nothing changed since ${result.trunk} HEAD: versions already correct`
+            : `versions already correct for ${result.trunk} + 1`);
+    }
     else if (check) console.log(`versions wrong — run: npm run bump-version`);
     else console.log(dryRun ? 'dry run — index.html untouched' : `wrote ${INDEX_HTML}`);
     // --check is a gate, not a write: it fails only when versions are wrong.

@@ -28,7 +28,7 @@ OLL Trainer is a web-based tool for practicing OLL algorithms in speedcubing. Th
 ### Cache-busting versions
 - index.html references each script and stylesheet with a `?vN` query, so a changed asset reaches browsers that already loaded the page. N is one counter per directory (`scripts/`, `styles/`).
 - Never edit `?vN` by hand. After changing files under `scripts/` or `styles/`, run `npm run bump-version`.
-- The rule the helper enforces: a branch may raise a version by exactly ONE over trunk at its branch point, however long the branch runs. It is idempotent: it normalises an over-bumped branch back down to trunk + 1, leaves directories with no changes at trunk's version, and does nothing on trunk. The single bump lands in trunk at merge, and trunk becomes the next base.
+- The rule the helper enforces: a branch may raise a version by exactly ONE over trunk at its branch point, however long the branch runs; work committed straight on trunk raises by exactly ONE over trunk's HEAD. It is idempotent: it normalises an over-bumped group back down to base + 1 and leaves directories with no changes at base's version. The bump lands in trunk at merge, and trunk becomes the next base.
 
 ## Agent skills
 

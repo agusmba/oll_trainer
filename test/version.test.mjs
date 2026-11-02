@@ -112,13 +112,69 @@ test('--dry-run reports without touching index.html', () => {
     } finally { clean(dir); }
 });
 
-test('trunk itself is never bumped', () => {
+test('trunk raises each changed asset group by one over HEAD', () => {
     const dir = fixture();
     try {
         git(['checkout', '-q', 'main'], dir);
-        const result = bumpVersion({ cwd: dir });
-        assert.equal(result.status, 'trunk');
+
+        // nothing changed since HEAD: no bump
+        assert.equal(bumpVersion({ cwd: dir }).status, 'already-bumped');
         assert.deepEqual(versions(dir), ['?v1', '?v3']);
+
+        fs.writeFileSync(path.join(dir, 'scripts', 'timer.js'), 'export const v = 2;\n');
+        assert.equal(bumpVersion({ cwd: dir }).status, 'changed');
+        assert.deepEqual(versions(dir), ['?v1', '?v4']);
+    } finally { clean(dir); }
+});
+
+test('trunk bumps once, and the committed bump becomes the next base', () => {
+    const dir = fixture();
+    try {
+        git(['checkout', '-q', 'main'], dir);
+        fs.writeFileSync(path.join(dir, 'scripts', 'timer.js'), 'export const v = 2;\n');
+
+        bumpVersion({ cwd: dir });
+        bumpVersion({ cwd: dir });
+        assert.deepEqual(versions(dir), ['?v1', '?v4'], 'idempotent before the commit lands');
+
+        git(['add', '-A'], dir);
+        git(['commit', '-q', '-m', 'trunk work'], dir);
+        assert.deepEqual(versions(dir), ['?v1', '?v4'], 'committed bump leaves versions alone');
+
+        // the committed bump is now the base: scripts stays, styles gets its own bump
+        fs.writeFileSync(path.join(dir, 'styles', 'main.css'), 'body { color: red }\n');
+        bumpVersion({ cwd: dir });
+        assert.deepEqual(versions(dir), ['?v2', '?v4']);
+    } finally { clean(dir); }
+});
+
+test('an over-bumped trunk group is normalised back down to HEAD + 1', () => {
+    const dir = fixture();
+    try {
+        git(['checkout', '-q', 'main'], dir);
+        fs.writeFileSync(path.join(dir, 'index.html'),
+            fs.readFileSync(path.join(dir, 'index.html'), 'utf8').replaceAll('?v3', '?v9'));
+        fs.writeFileSync(path.join(dir, 'scripts', 'timer.js'), 'export const v = 2;\n');
+
+        bumpVersion({ cwd: dir });
+        assert.deepEqual(versions(dir), ['?v1', '?v4']);
+    } finally { clean(dir); }
+});
+
+test('--check gates trunk too: fails while versions are wrong, passes once they are right', () => {
+    const dir = fixture();
+    try {
+        git(['checkout', '-q', 'main'], dir);
+        fs.writeFileSync(path.join(dir, 'scripts', 'timer.js'), 'export const v = 2;\n');
+
+        const failing = runCli(['--check'], dir);
+        assert.equal(failing.code, 1);
+        assert.match(failing.out, /raised to 4.*\[was 3\]/);
+        assert.deepEqual(versions(dir), ['?v1', '?v3'], '--check never writes');
+
+        assert.equal(runCli([], dir).code, 0);
+        assert.deepEqual(versions(dir), ['?v1', '?v4']);
+        assert.equal(runCli(['--check'], dir).code, 0);
     } finally { clean(dir); }
 });
 
