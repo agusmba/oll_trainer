@@ -65,6 +65,18 @@ function changedFiles(ref, dir, cwd) {
     return [...tracked, ...untracked];
 }
 
+/// \returns true when trunk's newest commit changed files in dir but left dir's version unraised
+function missedBumpInHead(root, dir) {
+    if (!gitOk(['rev-parse', '--verify', '--quiet', 'HEAD~1^{commit}'], root)) return false;
+    const headVersion = assetVersions(gitText(['show', `HEAD:${INDEX_HTML}`], root) ?? '').get(dir);
+    const parentHtml = gitText(['show', `HEAD~1:${INDEX_HTML}`], root);
+    if (headVersion === undefined || parentHtml === null) return false;
+    if (assetVersions(parentHtml).get(dir) === headVersion) {
+        return git(['diff', '--name-only', 'HEAD~1', 'HEAD', '--', dir], root).split('\n').filter(Boolean).length > 0;
+    }
+    return false;
+}
+
 /// \returns { status, message, trunk, base, entries } — entries describe each asset group.
 export function bumpVersion({ cwd = process.cwd(), dryRun = false } = {}) {
     const root = git(['rev-parse', '--show-toplevel'], cwd).trim();
@@ -97,9 +109,10 @@ export function bumpVersion({ cwd = process.cwd(), dryRun = false } = {}) {
     const entries = [];
     for (const [dir, version] of current) {
         const baseVersion = baseVersions.has(dir) ? baseVersions.get(dir) : baseFallback;
+        const missed = onTrunk && missedBumpInHead(root, dir);
         const changed = changedFiles(base, dir, root);
-        const target = changed.length > 0 ? baseVersion + 1 : baseVersion;
-        entries.push({ dir, baseVersion, version, target, changed, changedCount: changed.length });
+        const target = changed.length > 0 || missed ? baseVersion + 1 : baseVersion;
+        entries.push({ dir, baseVersion, version, target, changed, changedCount: changed.length, missed });
     }
 
     const needsChange = entries.some(e => e.version !== e.target);
@@ -111,7 +124,10 @@ export function bumpVersion({ cwd = process.cwd(), dryRun = false } = {}) {
 }
 
 function describe(entry) {
-    const verb = entry.changedCount > 0 ? `raised to ${entry.target} (${entry.changedCount} file(s) changed)` : `kept at ${entry.target} (nothing changed)`;
+    const reason = entry.changedCount > 0
+        ? `${entry.changedCount} file(s) changed`
+        : entry.missed ? 'last trunk commit changed files here without a bump' : 'nothing changed';
+    const verb = entry.changedCount > 0 || entry.missed ? `raised to ${entry.target} (${reason})` : `kept at ${entry.target} (${reason})`;
     const mark = entry.version === entry.target ? '' : `  [was ${entry.version}]`;
     return `${entry.dir}: base v${entry.baseVersion}, ${verb}${mark}`;
 }
@@ -132,7 +148,9 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
 
     if (result.status === 'already-bumped') {
         console.log(result.onTrunk
-            ? `nothing changed since ${result.trunk} HEAD: versions already correct`
+            ? result.entries.some(e => e.changedCount > 0 || e.missed)
+                ? `versions already correct for ${result.trunk} HEAD + 1`
+                : `nothing changed since ${result.trunk} HEAD: versions already correct`
             : `versions already correct for ${result.trunk} + 1`);
     }
     else if (check) console.log(`versions wrong — run: npm run bump-version`);

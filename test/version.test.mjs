@@ -161,6 +161,27 @@ test('an over-bumped trunk group is normalised back down to HEAD + 1', () => {
     } finally { clean(dir); }
 });
 
+test('trunk --check catches a trunk commit that changed assets without raising the version', () => {
+    const dir = fixture();
+    try {
+        git(['checkout', '-q', 'main'], dir);
+        fs.writeFileSync(path.join(dir, 'scripts', 'timer.js'), 'export const v = 2;\n');
+        git(['add', '-A'], dir);
+        git(['commit', '-q', '-m', 'trunk work, forgot the bump'], dir);
+
+        const failing = runCli(['--check'], dir);
+        assert.equal(failing.code, 1);
+        assert.match(failing.out, /last trunk commit changed files here without a bump/);
+        assert.deepEqual(versions(dir), ['?v1', '?v3'], '--check never writes');
+
+        assert.equal(runCli([], dir).code, 0);
+        assert.deepEqual(versions(dir), ['?v1', '?v4']);
+        git(['add', '-A'], dir);
+        git(['commit', '-q', '-m', 'bump scripts'], dir);
+        assert.equal(runCli(['--check'], dir).code, 0);
+    } finally { clean(dir); }
+});
+
 test('--check gates trunk too: fails while versions are wrong, passes once they are right', () => {
     const dir = fixture();
     try {
