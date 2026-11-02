@@ -8,6 +8,9 @@ which he hosted at [bestsiteever.net/oll/](https://bestsiteever.net/oll/). The p
 project and its details are described on the speedsolving forum in
 [this post](https://www.speedsolving.com/forum/threads/oll-trainer.66924/).
 
+This fork is hosted at **[agusmba.github.io/oll_trainer/](https://agusmba.github.io/oll_trainer/)**
+— GitHub Pages serves trunk, so the live site is the current state of `main`.
+
 ![oll trainer demo](demo.gif)
 
 Questions, suggestions and bug reports: open an issue on

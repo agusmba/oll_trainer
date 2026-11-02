@@ -4,18 +4,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { openServedApp } from './harness.mjs';
+import { openServedApp, sidebarHref } from './harness.mjs';
 
 const FORK_REPO = 'https://github.com/agusmba/oll_trainer';
 const UPSTREAM_REPO = 'https://github.com/Roman-/oll_trainer';
-
-/// href of the sidebar anchor whose visible text is `label`, or null if absent.
-function sidebarHref(page, label) {
-    return page.evaluate(text => {
-        const link = [...document.querySelectorAll('.selection_layout a')].find(a => a.textContent.trim() === text);
-        return link ? link.href : null;
-    }, label);
-}
+const HOSTED_URL = 'https://agusmba.github.io/oll_trainer/';
 
 /// hrefs of every anchor on the page.
 function pageLinks(page) {
@@ -41,6 +34,17 @@ test('the sidebar repo and offline-download links point at the fork', async () =
             'the GitHub repo link must point at the fork');
         assert.equal(await sidebarHref(app.page, 'zip'), `${FORK_REPO}/archive/main.zip`,
             'the offline download must come from the fork');
+    } finally { await app.close(); }
+});
+
+test('the README links the hosted URL, so the published site is discoverable', async () => {
+    const app = await openServedApp();
+    try {
+        const readme = await app.page.request.get(new URL('README.md', app.server.url).href);
+        assert.equal(readme.status(), 200, 'README is not reachable on the served copy');
+        const text = await readme.body();
+        assert.ok(text.includes(HOSTED_URL),
+            `README does not link the hosted URL ${HOSTED_URL}: ${text.slice(0, 300)}`);
     } finally { await app.close(); }
 });
 

@@ -85,3 +85,11 @@ export async function clickGroup(page, groupName) {
 /// Clicks Practice (Practice Mode) or Recap (Recap Mode).
 export async function clickPractice(page) { await page.click('#practiceButton'); }
 export async function clickRecap(page) { await page.click('#recapButton'); }
+
+/// \returns href of the sidebar anchor whose visible text is `label`, or null if absent.
+export function sidebarHref(page, label) {
+    return page.evaluate(text => {
+        const link = [...document.querySelectorAll('.selection_layout a')].find(a => a.textContent.trim() === text);
+        return link ? link.href : null;
+    }, label);
+}
