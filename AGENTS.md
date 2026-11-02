@@ -38,6 +38,10 @@ Skill instructions are installed locally under `.agents/skills/` and are not com
 
 Issues live as GitHub issues on the fork `agusmba/oll_trainer` (`gh` CLI). See `local-docs/agents/issue-tracker.md`.
 
+### Ticket lifecycle
+
+Claim, implement, close: `local-docs/agents/issue-tracker.md`. Read it before starting or closing a ticket — the implementer closes, merge auto-close is only a safety net.
+
 ### Triage labels
 
 Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `local-docs/agents/triage-labels.md`.
