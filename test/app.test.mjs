@@ -1,13 +1,25 @@
-import { test } from 'node:test';
+// The suite runs against a served copy under a Pages-style subpath rather than a
+// local file: localStorage, relative asset paths and reloads must hold on an
+// http:// origin, the way GitHub Pages serves the app.
+
+import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
     openApp, selectedCases, lastCase, isValidScramble, caseCellIds,
     clickCase, clickGroup, clickPractice, clickRecap,
 } from './harness.mjs';
+import { serveRepo } from './server.mjs';
 
-test('app loads with no console errors, page errors or failed requests', async () => {
-    const app = await openApp();
+let server;
+before(async () => { server = await serveRepo({ prefix: '/oll/' }); });
+after(async () => { await server.close(); });
+
+/// Open the app over the served http:// origin. \returns what harness.openApp returns.
+async function openServedApp() { return openApp({ url: server.url }); }
+
+test('app loads over an http:// origin with no console errors, page errors or failed requests', async () => {
+    const app = await openServedApp();
     try {
         assert.equal(app.errors.length, 0, `errors: ${app.errors.join('; ')}`);
         assert.equal(app.failedRequests.length, 0, `failed requests: ${app.failedRequests.join('; ')}`);
@@ -24,7 +36,7 @@ test('app loads with no console errors, page errors or failed requests', async (
 });
 
 test('selection defaults to cases 31 and 32 and persists across reload', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         assert.deepEqual(await selectedCases(app.page), [31, 32]);
 
@@ -40,7 +52,7 @@ test('selection defaults to cases 31 and 32 and persists across reload', async (
 });
 
 test('group header toggles the whole group', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         // group toggle is relative: if any case in the group is selected, the group is cleared
         await app.page.evaluate(() => { window.selCases = []; saveSelection(); renderSelection(); });
@@ -57,7 +69,7 @@ test('group header toggles the whole group', async () => {
 });
 
 test('all/none header toggles 57 cases and updates the counter', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         // all/none is relative too: nothing selected means "select all"
         await app.page.evaluate(() => { window.selCases = []; saveSelection(); renderSelection(); });
@@ -71,8 +83,34 @@ test('all/none header toggles 57 cases and updates the counter', async () => {
     } finally { await app.close(); }
 });
 
+test('Mode switching moves between Selection, Practice and Recap', async () => {
+    const app = await openServedApp();
+    try {
+        assert.equal(await app.page.evaluate(() => document.querySelector('.selection_layout').style.display), 'initial',
+            'the app opens in Selection Mode');
+
+        await clickPractice(app.page);
+        assert.equal(await app.page.evaluate(() => document.querySelector('.practice_layout').style.display), 'initial');
+        assert.equal(await app.page.evaluate(() => document.querySelector('.selection_layout').style.display), 'none');
+        assert.match(await app.page.evaluate(() => document.getElementById('selInfo').textContent), /practice mode/);
+
+        // Practice and Recap are entered from the case list, so leave Practice first
+        await app.page.click('#selectBtn');
+        assert.equal(await app.page.evaluate(() => document.querySelector('.selection_layout').style.display), 'initial',
+            'returning to the case list brings back Selection Mode');
+
+        await clickRecap(app.page);
+        assert.match(await app.page.evaluate(() => document.getElementById('selInfo').textContent), /recap mode/);
+        const firstRecapCase = await lastCase(app.page);
+        assert.equal(await app.page.evaluate(() => window.recapBacklog.length), 1,
+            'Recap seeds its backlog from the Selection and draws the first Case off it');
+        assert.ok(!(await app.page.evaluate(() => window.recapBacklog)).includes(firstRecapCase),
+            'the Recap backlog must not still hold the Case already drawn');
+    } finally { await app.close(); }
+});
+
 test('Practice Mode renders a legal scramble and enables the timer', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await clickPractice(app.page);
         assert.equal(await app.page.evaluate(() => document.querySelector('.practice_layout').style.display), 'initial');
@@ -81,11 +119,12 @@ test('Practice Mode renders a legal scramble and enables the timer', async () =>
         assert.ok(ok, `illegal scramble moves: ${moves.join(' ')}`);
         assert.ok(await app.page.evaluate(() => window.allowStartingTimer));
         assert.match(await app.page.evaluate(() => document.getElementById('selInfo').textContent), /practice mode/);
+        assert.equal(app.failedRequests.length, 0, `failed requests: ${app.failedRequests.join('; ')}`);
     } finally { await app.close(); }
 });
 
 test('empty selection does not start the timer', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => { window.selCases = []; saveSelection(); });
         await clickPractice(app.page);
@@ -95,7 +134,7 @@ test('empty selection does not start the timer', async () => {
 });
 
 test('Recap goes through every selected case exactly once', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         const sel = await selectedCases(app.page); // [31, 32]
         await clickRecap(app.page);
@@ -113,7 +152,7 @@ test('Recap goes through every selected case exactly once', async () => {
 });
 
 test('space starts and stops the timer and records one time', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await clickPractice(app.page);
 
@@ -134,7 +173,7 @@ test('space starts and stops the timer and records one time', async () => {
 });
 
 test('empty localStorage does not break the stats list', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => localStorage.clear());
         await app.page.reload();
@@ -147,7 +186,7 @@ test('empty localStorage does not break the stats list', async () => {
 });
 
 test('a selected Case has weight 1; an unselected Case has no weight', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); });
         assert.equal(await app.page.evaluate(() => weightOfCase(10)), 1);
@@ -158,7 +197,7 @@ test('a selected Case has weight 1; an unselected Case has no weight', async () 
 });
 
 test('a solve slower than the Goal doubles the Case weight; a faster one halves it', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
 
@@ -175,7 +214,7 @@ test('a solve slower than the Goal doubles the Case weight; a faster one halves 
 });
 
 test('a time equal to the goal halves the weight ("faster or equal" beats the goal)', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => {
             window.selCases = [10, 20];
@@ -190,7 +229,7 @@ test('a time equal to the goal halves the weight ("faster or equal" beats the go
 });
 
 test('weights saturate at 8 and bottom out at 1/8, so no case dominates or vanishes', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
 
@@ -211,7 +250,7 @@ test('weights saturate at 8 and bottom out at 1/8, so no case dominates or vanis
 });
 
 test('a Goal of 0 or a negative Goal leaves weights alone', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => {
             window.selCases = [10, 20];
@@ -226,7 +265,7 @@ test('a Goal of 0 or a negative Goal leaves weights alone', async () => {
 });
 
 test('bumping a Case outside the Selection is a no-op', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => {
             window.selCases = [10, 20];
@@ -244,7 +283,7 @@ test('bumping a Case outside the Selection is a no-op', async () => {
 });
 
 test('pickWeightedCase draws over the Selection by Weight, deterministically for a given rng', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
         await app.page.evaluate(() => { for (let k = 0; k < 2; ++k) bumpWeight(20, 9000, 1000); }); // 10 -> 1, 20 -> 4
@@ -264,7 +303,7 @@ test('pickWeightedCase draws over the Selection by Weight, deterministically for
 });
 
 test('pickWeightedCase never draws a Case with no Weight', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10]; saveSelection(); });
         // 31 is not in the Selection, so it has no Weight and must not be drawn
@@ -278,7 +317,7 @@ test('pickWeightedCase never draws a Case with no Weight', async () => {
 });
 
 test('the heavier Case is drawn wherever it sits in the Selection', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         // weights are keyed by Case, so Selection order is irrelevant
         await app.page.evaluate(() => { window.selCases = [20, 10]; saveSelection(); window.goal = 1000; });
@@ -296,7 +335,7 @@ test('the heavier Case is drawn wherever it sits in the Selection', async () => 
 });
 
 test('the times list prints "[weight: N]" only when a Goal is set and the Case is selected', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => {
             window.selCases = [10, 20];
@@ -326,7 +365,7 @@ test('the times list prints "[weight: N]" only when a Goal is set and the Case i
 });
 
 test('the times list is ordered by algsinfo grouping', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => {
             window.goal = 0;
@@ -350,7 +389,7 @@ test('the times list is ordered by algsinfo grouping', async () => {
 });
 
 test('Recap solves do not change Weights, including the last Recap case', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => {
             window.selCases = [10, 20];
@@ -377,7 +416,7 @@ test('Recap solves do not change Weights, including the last Recap case', async 
 });
 
 test('Recap ends after its last solve and Practice resumes bumping Weights', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
         await clickRecap(app.page);
@@ -409,7 +448,7 @@ test('Recap ends after its last solve and Practice resumes bumping Weights', asy
 });
 
 test('a recorded Practice solve bumps the last Case weight', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
         await clickPractice(app.page);
@@ -428,7 +467,7 @@ test('a recorded Practice solve bumps the last Case weight', async () => {
 });
 
 test('Practice draws are weighted by Weight, and never draw a Case outside the Selection', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => {
             window.selCases = [10, 20];
@@ -453,7 +492,7 @@ test('Practice draws are weighted by Weight, and never draw a Case outside the S
 });
 
 test('changing the Selection and clearing the session reset every weight', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         app.page.on('dialog', d => d.accept());
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
@@ -481,7 +520,7 @@ test('changing the Selection and clearing the session reset every weight', async
 });
 
 test('applying a new Goal resets every Weight in the Selection', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
         await clickPractice(app.page); // goal input lives on the practice page
@@ -498,7 +537,7 @@ test('applying a new Goal resets every Weight in the Selection', async () => {
 });
 
 test('turning the Goal off (0) resets every Weight and stops printing weights', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => {
             window.selCases = [10, 20];
@@ -529,7 +568,7 @@ test('turning the Goal off (0) resets every Weight and stops printing weights', 
 });
 
 test('emptying the Goal turns dynamic weights off and resets every Weight', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await clickPractice(app.page); // goal input lives on the practice page
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); });
@@ -552,7 +591,7 @@ test('emptying the Goal turns dynamic weights off and resets every Weight', asyn
 });
 
 test('the "reset weights" link uniformises every Weight and leaves the Selection and times history alone', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => {
             window.selCases = [10, 20];
@@ -587,7 +626,7 @@ test('the "reset weights" link uniformises every Weight and leaves the Selection
 });
 
 test('re-committing the same Goal keeps the Weights earned against it', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); });
         await clickPractice(app.page); // goal input lives on the practice page
@@ -608,7 +647,7 @@ test('re-committing the same Goal keeps the Weights earned against it', async ()
 });
 
 test('a reload adopts the Goal the goal input shows, so Weights go live again', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); });
         await clickPractice(app.page);
@@ -644,7 +683,7 @@ test('a reload adopts the Goal the goal input shows, so Weights go live again', 
 });
 
 test('a punished Case stays drawable: bounded weights never drop a Case from the pool', async () => {
-    const app = await openApp();
+    const app = await openServedApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); window.goal = 1000; });
         await app.page.evaluate(() => {

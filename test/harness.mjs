@@ -1,16 +1,19 @@
 // Headless harness for the OLL Trainer app.
-// Launches chromium-headless-shell, loads index.html, collects everything the app
-// complains about, then hands back a page. Keep assertions in JS, not in the model:
-// tests print a few lines, not the whole page.
+// Launches chromium-headless-shell, loads the app at `url` (the local index.html
+// file by default; an http:// origin when the caller supplies one), collects
+// everything the app complains about, then hands back a page. Keep assertions in
+// JS, not in the model: tests print a few lines, not the whole page.
 
 import { chromium } from 'playwright';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { serveRepo } from './server.mjs';
+
 const APP_URL = pathToFileURL(path.resolve(process.cwd(), 'index.html')).href;
 
 /// \returns { page, browser, errors, failedRequests, close }
-export async function openApp() {
+export async function openApp({ url = APP_URL } = {}) {
     const browser = await chromium.launch();
     const page = await browser.newPage();
 
@@ -21,7 +24,7 @@ export async function openApp() {
     const failedRequests = [];
     page.on('requestfailed', r => failedRequests.push(`${r.url()} -> ${r.failure?.errorText}`));
 
-    await page.goto(APP_URL);
+    await page.goto(url);
     await page.waitForTimeout(100); // let the inline changeMode("selection") render settle
 
     return {
@@ -30,6 +33,18 @@ export async function openApp() {
         errors,
         failedRequests,
         close: () => browser.close(),
+    };
+}
+
+/// The app served over http:// under a Pages-style subpath (raw files, nothing
+/// processed). \returns what openApp returns, plus `server` and a close that shuts both.
+export async function openServedApp({ prefix = '/oll/' } = {}) {
+    const server = await serveRepo({ prefix });
+    const app = await openApp({ url: server.url });
+    return {
+        ...app,
+        server,
+        close: async () => { await app.close(); await server.close(); },
     };
 }
 
