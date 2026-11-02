@@ -4,6 +4,7 @@ if (timesArray == null) // todo fix when figure out why JSON.parse("[]") returns
     timesArray = [];
 var lastScramble = "";
 var lastCase = 0;
+var goal = 0;
 
 displayStats(); // after loading
 
@@ -45,10 +46,10 @@ function confirmUnsel(i) {
 
 function displayPracticeInfo() {
     var s = "";
-    if (window.recapArray.length == 0)
-        s += " | train mode: <b>" + window.selCases.length + "</b> cases selected";
+    if (window.mode == "recap")
+        s += " | recap mode: <b>" + window.recapBacklog.length + "</b> cases left";
     else
-        s += " | recap mode: <b>" + window.recapArray.length + "</b> cases left";
+        s += " | practice mode: <b>" + window.selCases.length + "</b> cases selected";
 
     document.getElementById("selInfo").innerHTML = s;
 }
@@ -58,19 +59,26 @@ function generateScramble()
     if (window.lastScramble != "")
         document.getElementById("last_scramble").innerHTML = "last scramble: " + window.lastScramble +
             " <span onclick='displayBox(event,"+lastCase+")' class='ollNameStats'>("+algsInfo[lastCase]["name"] + ") </span><a class='settings' onclick='confirmUnsel("+lastCase+")' style='color:"+document.getElementById( "linkscolor_in" ).value+";'>unselect</a>";
-    displayPracticeInfo();
     // get random case
     var caseNum = 0;
-    if (recapArray.length == 0) { // train
-        caseNum = randomElement(window.selCases);
-    } else { // recap
-        // select the case
-        caseNum = randomElement(window.recapArray);
-        // remove it from the array
-        const index = window.recapArray.indexOf(caseNum);
-        window.recapArray.splice(index, 1);
-
+    if (window.mode == "recap" && window.recapBacklog.length == 0) {
+        // Recap's backlog is empty, so Recap is over: the solve that just ran was its
+        // last Recap solve (Weights were not touched), and the draw from here is Practice.
+        setMode("practice");
     }
+
+    if (window.mode == "recap") {
+        // select the case
+        caseNum = randomElement(window.recapBacklog);
+        // remove it from the backlog
+        const index = window.recapBacklog.indexOf(caseNum);
+        window.recapBacklog.splice(index, 1);
+
+    } else { // practice
+        caseNum = pickWeightedCase(window.selCases);
+    }
+    // read Mode after the draw decided it, so the info line agrees with what is on screen
+    displayPracticeInfo();
     var alg = inverse_scramble(randomElement(window.ollMap[caseNum]));
     var rotation = randomElement(["", "y", "y2", "y'"]);
     var finalAlg = applyRotationForAlgorithm(alg, rotation);
@@ -348,7 +356,11 @@ function escapeHtml(text) {
 function appendStats()
 {
     // assuming the time can be grabbed from timer label, and the case - window.lastCase
-    window.timesArray.push(makeResultInstance());
+    var result = makeResultInstance();
+    window.timesArray.push(result);
+    // Practice steers the draw by Weight; Recap replays the Selection, so its solves
+    // must not skew the Weights earned against the Goal.
+    if (window.mode == "practice") bumpWeight(window.lastCase, result.ms, window.goal);
     displayStats();
 }
 
@@ -389,6 +401,7 @@ function confirmClear()
 {
     if (confirm("Are you sure you want to clear session?")) {
         window.timesArray = [];
+        resetWeights();
         document.getElementById('infoHeader').innerHTML = ('')
         displayStats();
     }
@@ -453,7 +466,10 @@ function displayStats()
         }
 
         var keys = Object.keys(resultsByCase);
-        keys.sort();
+        keys.sort(function(a, b) {
+            // algsOrder holds case numbers, Object.keys gives strings: coerce before looking up
+            return algsOrder.indexOf(parseInt(a)) - algsOrder.indexOf(parseInt(b)); // algsinfo grouping order
+        });
 
         var s = "";
         // allocate them inside times span
@@ -462,6 +478,9 @@ function displayStats()
             var timesString = "";
             var meanForCase = 0.0;
             var i = 0;
+            var weight = weightOfCase(parseInt(oll));
+            if (goalActive(window.goal) && weight !== null)
+                timesString += "[weight: " + weight + "] ";
             for (; i < resultsByCase[oll].length; i++)
             {
                 timesString += makeHtmlDisplayableTime(resultsByCase[oll][i]);
@@ -569,6 +588,41 @@ function resetStyle(dark) {
     applystyle();
     savestyle();
 }
+
+/// \returns the Goal held by the goal input; an empty or invalid input reads as 0, meaning dynamic weights off
+function readGoal() {
+    var value = document.querySelector('#goal_in').valueAsNumber;
+    return isNaN(value) ? 0 : value;
+}
+
+function applyGoal() {
+    window.goal = readGoal();
+    // the Goal is part of the practice contract: every Weight is earned against it,
+    // so it is stale the moment the Goal changes (ADR-0001), including when the Goal
+    // is turned off (0, negative or empty).
+    resetWeights();
+    displayStats();
+}
+
+/// Resets every Weight in the Selection to uniform, from the link beside the goal input.
+/// The only reset that is not destructive: the Selection and the times history survive.
+function applyResetWeights() {
+    resetWeights();
+    displayStats();
+}
+
+/// The Goal is never app-persisted, but browsers restore form values across a reload, so the
+/// goal input can come back holding the previous Goal. Whatever that input shows once the page
+/// is loaded is the Goal in effect; showing a Goal the app is not using would read as a bug.
+/// Weights stay uniform here: loadSelection() already rebuilt them (ADR-0001).
+function loadGoal() {
+    window.goal = readGoal();
+    displayStats(); // reprint the times list, now that weights may be live again
+}
+
+// restoration timing is up to the browser, so reconcile at load, the latest point that is
+// guaranteed to be after it (and after loadSelection() rebuilt the weights)
+window.addEventListener("load", loadGoal);
 
 // add key listeners to blur settings inputs
 var inputs = document.getElementsByClassName("settinginput");

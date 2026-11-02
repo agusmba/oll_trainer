@@ -28,6 +28,8 @@ function loadLocal(name, defaultValue) {
 }
 
 function saveSelection() {
+    // Weights are earned against the current Selection, so a selection change resets them
+    resetWeights();
     return saveLocal('ollSelection', JSON.stringify(window.selCases));
 }
 
