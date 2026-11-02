@@ -12,6 +12,8 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
 
+Target repo: the fork **`agusmba/oll_trainer`** (`origin`). `gh` infers this automatically when run inside a clone (`gh-resolved = base`). Do not create issues on `upstream` (`Roman-/oll_trainer`).
+
 ## Ticket lifecycle
 
 **Claim.** The first write on a ticket you start is `gh issue edit <number> --add-assignee @me`. An assignee marks the ticket in flight, and the **frontier** query drops assigned tickets, so in-flight work never reads as available.
@@ -19,8 +21,6 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 **The implementer closes.** Close a ticket when its acceptance criteria are all met, from the branch or trunk commit that implements it — `gh issue close <number> --comment "<commit> shipped <what>"`. On a branch, close before merge: *closed* means *done*, not *on trunk*. Reopen the ticket if the work stalls or is reverted.
 
 **Auto-close is a net.** Write `Closes #n` where GitHub reads it — the **commit message** for work landing on the default branch, the **PR title or body** for a merge (a squash merge drops per-commit messages). GitHub fires only once the reference lands on the default branch, so an unpushed or rebased reference closes nothing. Name a ticket there only when its acceptance criteria are all met; a partially-satisfied ticket stays open and labelled. Closing twice is idempotent, so the net and the norm never conflict.
-
-Target repo: the fork **`agusmba/oll_trainer`** (`origin`). `gh` infers this automatically when run inside a clone (`gh-resolved = base`). Do not create issues on `upstream` (`Roman-/oll_trainer`).
 
 ## Pull requests as a triage surface
 
