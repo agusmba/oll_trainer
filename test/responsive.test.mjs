@@ -412,35 +412,39 @@ test('when the topbar runs short, only the status pill drops a line', async () =
     try {
         await clickPractice(app.page);
 
-        // Roomy enough that the pill fits beside the buttons: one line, and the
-        // pill sits right of "Select cases".
-        for (const width of [1440, 900, 560]) {
-            await app.page.setViewportSize({ width, height: 800 });
-            const bar = await boxOf(app.page, '.topbar');
-            const select = await boxOf(app.page, '#selectBtn');
-            const pill = await boxOf(app.page, '#selInfo');
-            assert.ok(bar.height <= 56, `at ${width}px the topbar wraps with room to spare (${bar.height}px)`);
-            assert.ok(pill.x > select.x + select.width, `at ${width}px the pill is not beside the button`);
-        }
-
-        // Too short for the pill: it drops, and the buttons stay on the first line,
-        // still against the right edge.
-        for (const width of [520, 390, 360]) {
+        // Font metrics differ between machines, so the widths where the pill wraps
+        // are not fixed. What is fixed: the buttons never move, and the pill either
+        // fits beside them or drops to its own line — never beside a wrapped button.
+        let fitted = 0;
+        let wrapped = 0;
+        for (const width of [1440, 900, 560, 520, 390, 360]) {
             await app.page.setViewportSize({ width, height: 800 });
             const bar = await boxOf(app.page, '.topbar');
             const select = await boxOf(app.page, '#selectBtn');
             const pill = await boxOf(app.page, '#selInfo');
             const theme = await boxOf(app.page, '#themeToggle');
             const settings = await boxOf(app.page, '#settingsToggle');
-            assert.ok(bar.height > 56, `at ${width}px the topbar should have wrapped the pill`);
+
             assert.ok(Math.abs(theme.y - select.y) <= 2 && Math.abs(settings.y - select.y) <= 2,
                 `at ${width}px the buttons are not level with Select cases ` +
                 `(button y=${theme.y}/${settings.y}, Select cases y=${select.y})`);
-            assert.ok(pill.y >= select.y + select.height - 1,
-                `at ${width}px the status pill did not drop below the buttons`);
             assert.ok(settings.x + settings.width >= (await viewport(app.page)).width - 45,
                 `at ${width}px the buttons lost their right alignment`);
+
+            const oneLine = bar.height <= 56;
+            if (oneLine) {
+                fitted++;
+                assert.ok(pill.x > select.x + select.width, `at ${width}px the pill is not beside the button`);
+            } else {
+                wrapped++;
+                assert.ok(bar.height <= 84, `at ${width}px the topbar wrapped more than once (${bar.height}px)`);
+                assert.ok(pill.y >= select.y + select.height - 1,
+                    `at ${width}px the status pill did not drop below the buttons`);
+            }
+            assert.ok(width < 900 || oneLine, `at ${width}px the topbar wrapped (${bar.height}px)`);
+            assert.ok(width > 390 || !oneLine, `at ${width}px the pill should have dropped a line`);
         }
+        assert.ok(fitted > 0 && wrapped > 0, 'the pill should fit at some widths and drop at others');
     } finally { await app.close(); }
 });
 
