@@ -74,6 +74,20 @@ export async function openServedApp({ prefix = '/oll/', ...contextOptions } = {}
     };
 }
 
+/// Fills the times history without solving anything, so a layout test can look at
+/// a long list. Each entry belongs to a Case in the default Selection.
+export async function recordTimes(page, count = 60) {
+    await page.evaluate(n => {
+        window.goal = 1000;
+        for (let k = 0; k < n; ++k) {
+            window.timesArray.push({
+                time: '2.00', ms: 2000 + k * 7, details: "R U R' U'", index: k, case: (k % 2) ? 20 : 10,
+            });
+        }
+        displayStats();
+    }, count);
+}
+
 /// \returns array of selected case numbers
 export function selectedCases(page) {
     return page.evaluate(() => window.selCases.slice());

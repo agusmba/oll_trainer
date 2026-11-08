@@ -58,6 +58,20 @@ async function main() {
             await page.evaluate(() => showScramble());
         }
     };
+    const manyTimes = async page => {
+        // A practice session worth scrolling through: several Cases, each with a few solves.
+        await page.evaluate(() => {
+            window.goal = 1000;
+            const cases = window.selCases.length ? window.selCases : [10, 11, 12, 20, 31, 32, 40, 50];
+            for (let k = 0; k < 60; ++k) {
+                window.timesArray.push({
+                    time: '2.00', ms: 1600 + k * 9, details: "R U R' U'", index: k,
+                    case: cases[k % cases.length],
+                });
+            }
+            displayStats();
+        });
+    };
     const openSettings = async page => { await page.click('#settingsToggle'); };
     const dark = async page => {
         await page.click('#practiceButton'); // the theme switch lives on the solve screen
@@ -78,7 +92,7 @@ async function main() {
     await shoot(browser, url, 'phone-selection-scroll', PHONE, [selectSome, async page => {
         await page.evaluate(() => window.scrollTo(0, 700));
     }]);
-    await shoot(browser, url, 'phone-landscape-practice', { width: 844, height: 390 }, [toPractice, fillGoal]);
+    await shoot(browser, url, 'phone-landscape-practice', { width: 844, height: 390 }, [toPractice, manyTimes]);
     await shoot(browser, url, 'phone-selection-bottom', PHONE, [async page => {
         await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     }]);
@@ -93,7 +107,8 @@ async function main() {
     // Wide and short windows: the shell fills the window, and a topbar that runs
     // short drops only the status pill.
     await shoot(browser, url, 'wide-desktop-selection', { width: 1920, height: 1000 }, [selectSome]);
-    await shoot(browser, url, 'wide-desktop-practice', { width: 1920, height: 1000 }, [toPractice, fillGoal]);
+    await shoot(browser, url, 'desktop-practice-long', DESKTOP, [toPractice, manyTimes]);
+    await shoot(browser, url, 'wide-desktop-practice', { width: 1920, height: 1000 }, [toPractice, manyTimes]);
     await shoot(browser, url, 'narrow-desktop-practice', { width: 520, height: 800 }, [toPractice, fillGoal]);
 
     await browser.close();

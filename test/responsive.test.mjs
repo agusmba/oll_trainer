@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import {
     openApp, clickCase, clickPractice, brokenImages, caseCellIds,
-    tapCenter, viewport, boxOf, closeBrowser,
+    tapCenter, viewport, boxOf, recordTimes, closeBrowser,
 } from './harness.mjs';
 import { serveRepo } from './server.mjs';
 
@@ -433,12 +433,61 @@ test('when the topbar runs short, only the status pill drops a line', async () =
             const theme = await boxOf(app.page, '#themeToggle');
             const settings = await boxOf(app.page, '#settingsToggle');
             assert.ok(bar.height > 56, `at ${width}px the topbar should have wrapped the pill`);
-            assert.ok(theme.y < select.y + select.height && settings.y < select.y + select.height,
-                `at ${width}px the theme and settings buttons left the first line`);
+            assert.ok(Math.abs(theme.y - select.y) <= 2 && Math.abs(settings.y - select.y) <= 2,
+                `at ${width}px the buttons are not level with Select cases ` +
+                `(button y=${theme.y}/${settings.y}, Select cases y=${select.y})`);
             assert.ok(pill.y >= select.y + select.height - 1,
                 `at ${width}px the status pill did not drop below the buttons`);
             assert.ok(settings.x + settings.width >= (await viewport(app.page)).width - 45,
                 `at ${width}px the buttons lost their right alignment`);
         }
+    } finally { await app.close(); }
+});
+
+test('a long history scrolls inside its panel instead of pushing the clock away', async () => {
+    const app = await openApp({ url: server.url, viewport: { width: 1440, height: 900 } });
+    try {
+        await clickPractice(app.page);
+        await recordTimes(app.page, 120);
+
+        const screen = await viewport(app.page);
+        const timer = await boxOf(app.page, '#timer');
+        const stats = await boxOf(app.page, '#stats');
+        assert.ok(await app.page.evaluate(() => document.scrollingElement.scrollHeight
+            <= window.innerHeight + 1), 'a long history grew the page and scrolled the clock away');
+        assert.ok(timer.y + timer.height <= screen.height,
+            `the clock runs to y=${timer.y + timer.height} on a ${screen.height}px screen`);
+        assert.ok(stats.y + stats.height <= screen.height + 1,
+            `the history panel runs to y=${stats.y + stats.height} past the screen`);
+
+        const list = await app.page.evaluate(() => {
+            const el = document.getElementById('times');
+            return { scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
+        });
+        assert.ok(list.scrollHeight > list.clientHeight,
+            `the history did not scroll inside itself (${list.scrollHeight} content in ${list.clientHeight})`);
+    } finally { await app.close(); }
+});
+
+test('a wide screen that is short stacks the solve instead of crushing the history', async () => {
+    // A phone turned sideways is wide but has almost no height: two columns there
+    // would leave the times panel no room at all.
+    const app = await openApp({ url: server.url, viewport: { width: 844, height: 390 } });
+    try {
+        await clickPractice(app.page);
+        await recordTimes(app.page, 60);
+
+        const screen = await viewport(app.page);
+        const timer = await boxOf(app.page, '#timer');
+        const stats = await boxOf(app.page, '#stats');
+        assert.ok(stats.y >= timer.y + timer.height,
+            `the history panel (y=${stats.y}) is beside the clock rather than below it`);
+
+        const list = await app.page.evaluate(() => {
+            const el = document.getElementById('times');
+            return { clientHeight: el.clientHeight };
+        });
+        assert.ok(list.clientHeight >= 40, `the history is only ${list.clientHeight}px tall`);
+        assert.ok(timer.y + timer.height <= screen.height, 'the clock itself is off a sideways screen');
     } finally { await app.close(); }
 });
