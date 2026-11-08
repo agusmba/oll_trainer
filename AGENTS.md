@@ -6,8 +6,8 @@ OLL Trainer is a web-based tool for practicing OLL algorithms in speedcubing. Th
 ## Build/Test Commands
 - To run locally, simply open index.html in a browser
 - Site can be used offline once downloaded
-- Tests are dev-only (`test/`, headless chromium over index.html); the commands live in `package.json`. The browser is fetched once into `~/.cache/ms-playwright`, outside the repo.
-- `npm run test:responsive` runs only the phone/tablet suite (`test/responsive.test.mjs`): touch targets, reflow at several widths, sheet and tap gestures. `npm run shots` writes screenshots of both Modes at phone and desktop sizes to `/tmp/oll-shots` — look at the interface rather than reasoning about it.
+- Tests are dev-only (`test/`, headless chromium over index.html); the commands live in `package.json`. The browser is fetched once into `~/.cache/ms-playwright`, outside the repo. Test files run one at a time (`--test-concurrency=1`): each file drives a browser, and several at once is enough to get the run OOM-killed.
+- `npm run test:responsive` runs only the phone/tablet suite (`test/responsive.test.mjs`): touch targets, reflow at several widths, sheet and tap gestures. `npm run shots` writes screenshots of both Modes at phone and desktop sizes to `/tmp/oll-shots` — look at the interface rather than reasoning about it. `npm run probe [w] [h]` prints the measured box of every element of the solve screen, for a layout question about geometry rather than appearance.
 - Case images are SVG. Render before looking at one: `rsvg-convert -w 300 pic/31.svg -o /tmp/case.png`
 - Cache-busting versions are managed by the dev-only helper `dev/bump-version.mjs`: `npm run bump-version` (see below), `npm run bump-version:check` to verify.
 

@@ -373,3 +373,72 @@ test('a desktop screen puts the times beside the clock instead of under it', asy
         assert.ok(!(await scrollsSideways(app.page)), 'Practice Mode scrolls sideways on a desktop');
     } finally { await app.close(); }
 });
+
+test('the solve screen and the case grid use the whole window width', async () => {
+    const app = await openApp({ url: server.url, viewport: { width: 1920, height: 900 } });
+    try {
+        await clickPractice(app.page);
+        const screen = await viewport(app.page);
+        const shell = await boxOf(app.page, '.app-shell');
+        assert.ok(Math.abs(shell.width - screen.width) <= 2,
+            `the practice shell is ${shell.width}px wide inside a ${screen.width}px window`);
+
+        const stats = await boxOf(app.page, '#stats');
+        assert.ok(stats.x + stats.width >= screen.width - 45,
+            `the times panel stops at ${stats.x + stats.width}, leaving the right edge unused`);
+
+        await app.page.evaluate(() => changeMode('selection'));
+        const grid = await boxOf(app.page, '.selection-inner');
+        assert.ok(Math.abs(grid.width - screen.width) <= 2,
+            `the Selection column is ${grid.width}px wide inside a ${screen.width}px window`);
+    } finally { await app.close(); }
+});
+
+test('the Goal strip keeps its own height and hands the rest to the history', async () => {
+    const app = await openApp({ url: server.url, viewport: { width: 1440, height: 900 } });
+    try {
+        await clickPractice(app.page);
+        const goal = await boxOf(app.page, '.goal-row');
+        const times = await boxOf(app.page, '#times');
+        assert.ok(goal.height <= 110, `the Goal strip takes ${goal.height}px of the column`);
+        assert.ok(times.height >= 380, `the times history only gets ${times.height}px`);
+        assert.ok(await app.page.evaluate(() => document.scrollingElement.scrollHeight
+            <= window.innerHeight + 1), 'the solve screen scrolls past its own height');
+    } finally { await app.close(); }
+});
+
+test('when the topbar runs short, only the status pill drops a line', async () => {
+    const app = await openApp({ url: server.url, viewport: { width: 1440, height: 800 } });
+    try {
+        await clickPractice(app.page);
+
+        // Roomy enough that the pill fits beside the buttons: one line, and the
+        // pill sits right of "Select cases".
+        for (const width of [1440, 900, 560]) {
+            await app.page.setViewportSize({ width, height: 800 });
+            const bar = await boxOf(app.page, '.topbar');
+            const select = await boxOf(app.page, '#selectBtn');
+            const pill = await boxOf(app.page, '#selInfo');
+            assert.ok(bar.height <= 56, `at ${width}px the topbar wraps with room to spare (${bar.height}px)`);
+            assert.ok(pill.x > select.x + select.width, `at ${width}px the pill is not beside the button`);
+        }
+
+        // Too short for the pill: it drops, and the buttons stay on the first line,
+        // still against the right edge.
+        for (const width of [520, 390, 360]) {
+            await app.page.setViewportSize({ width, height: 800 });
+            const bar = await boxOf(app.page, '.topbar');
+            const select = await boxOf(app.page, '#selectBtn');
+            const pill = await boxOf(app.page, '#selInfo');
+            const theme = await boxOf(app.page, '#themeToggle');
+            const settings = await boxOf(app.page, '#settingsToggle');
+            assert.ok(bar.height > 56, `at ${width}px the topbar should have wrapped the pill`);
+            assert.ok(theme.y < select.y + select.height && settings.y < select.y + select.height,
+                `at ${width}px the theme and settings buttons left the first line`);
+            assert.ok(pill.y >= select.y + select.height - 1,
+                `at ${width}px the status pill did not drop below the buttons`);
+            assert.ok(settings.x + settings.width >= (await viewport(app.page)).width - 45,
+                `at ${width}px the buttons lost their right alignment`);
+        }
+    } finally { await app.close(); }
+});

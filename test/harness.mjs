@@ -64,9 +64,9 @@ export async function openApp({ url = APP_URL, ...contextOptions } = {}) {
 
 /// The app served over http:// under a Pages-style subpath (raw files, nothing
 /// processed). \returns what openApp returns, plus `server` and a close that shuts both.
-export async function openServedApp({ prefix = '/oll/' } = {}) {
+export async function openServedApp({ prefix = '/oll/', ...contextOptions } = {}) {
     const server = await serveRepo({ prefix });
-    const app = await openApp({ url: server.url });
+    const app = await openApp({ url: server.url, ...contextOptions });
     return {
         ...app,
         server,

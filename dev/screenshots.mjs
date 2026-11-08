@@ -90,6 +90,12 @@ async function main() {
     await shoot(browser, url, 'tablet-selection', { width: 820, height: 1180 }, [selectSome]);
     await shoot(browser, url, 'phone-peek', PHONE, [toPractice, peek]);
 
+    // Wide and short windows: the shell fills the window, and a topbar that runs
+    // short drops only the status pill.
+    await shoot(browser, url, 'wide-desktop-selection', { width: 1920, height: 1000 }, [selectSome]);
+    await shoot(browser, url, 'wide-desktop-practice', { width: 1920, height: 1000 }, [toPractice, fillGoal]);
+    await shoot(browser, url, 'narrow-desktop-practice', { width: 520, height: 800 }, [toPractice, fillGoal]);
+
     await browser.close();
     await server.close();
     console.log(`wrote shots to ${OUT}`);

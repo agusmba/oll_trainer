@@ -12,9 +12,9 @@
     gap: var(--gap);
     min-height: 100vh;
     min-height: 100dvh;
-    padding: calc(var(--gap) + env(safe-area-inset-top)) var(--gap) 0;
-    max-width: 1180px;
-    margin: 0 auto;
+    /* Full width: the pictures reflow into more columns as the screen grows
+       instead of leaving unused margins on a wide desktop. */
+    padding: calc(var(--gap) + env(safe-area-inset-top)) max(var(--gap), 1.6vw) 0;
 }
 
 .selection-head {
@@ -34,8 +34,13 @@
 }
 
 /* One card per shape group. The table stays a table in markup (cells are the
-   case slots) but lays out as a wrapping grid, so the 57 pictures reflow from
-   six across on a desktop to four across on a phone without horizontal scroll. */
+   case slots) but lays out as a grid, so the 57 pictures reflow from four across
+   on a phone to twelve across on a wide desktop without horizontal scroll.
+
+   --cols is the number of slots a row holds, and every card uses the same count:
+   pictures then fill their slot and a wide screen gets bigger pictures instead of
+   gaps beside them. */
+:root { --cols: 4; }
 .ollgroup,
 .ollgroup tbody {
     display: block;
@@ -49,7 +54,7 @@
 
 .ollgroup tr {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(var(--cell), 1fr));
+    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
     gap: 3px;
     padding: 3px;
 }
@@ -109,10 +114,11 @@ td.itemSel {
     box-shadow: inset 0 0 0 2px var(--accent);
 }
 
+/* The picture is the slot: it grows with the column, so the grid uses the whole
+   card instead of parking a fixed-size square at its left edge. */
 #cases_selection img {
     display: block;
     width: 100%;
-    max-width: 96px;
     height: auto;
 }
 
@@ -188,14 +194,24 @@ a.settings { text-decoration: underline; color: var(--link); cursor: pointer; }
 /* Pointer-capable, roomy screens: bigger pictures, notes in a side column,
    the action bar aligned right instead of stretched across the screen. */
 @media (min-width: 700px) {
-    :root { --cell: 82px; }
+    /* The notes column takes part of the width here, so the row keeps five slots
+       rather than six: the pictures stay readable instead of shrinking. */
+    :root { --cell: 82px; --cols: 5; }
     .selection-body { grid-template-columns: minmax(0, 1fr) minmax(240px, 320px); align-items: start; }
     .btns-right { justify-content: flex-end; }
     .abutton { flex: 0 0 auto; min-width: 160px; }
 }
 
 @media (min-width: 1000px) {
-    :root { --cell: 96px; }
+    :root { --cell: 96px; --cols: 8; }
+}
+
+@media (min-width: 1400px) {
+    :root { --cols: 10; }
+}
+
+@media (min-width: 1700px) {
+    :root { --cols: 12; }
 }
 
 /* A finger needs more than a cursor does: the same controls grow on touch. */

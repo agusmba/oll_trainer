@@ -17,8 +17,10 @@
 <div class="practice_layout">
     <div class="app-shell">
         <header class="topbar">
-            <button type="button" class="btn btn-ghost" id="selectBtn" onclick='changeMode("selection")'>Select cases</button>
-            <span id="selInfo" class="pill"></span>
+            <div class="topbar-left">
+                <button type="button" class="btn btn-ghost" id="selectBtn" onclick='changeMode("selection")'>Select cases</button>
+                <span id="selInfo" class="pill"></span>
+            </div>
             <div class="topbar-right">
                 <button type="button" class="icon-btn" id="themeToggle" onclick="toggleTheme()"
                         title="Switch between light and dark" aria-label="Switch between light and dark theme">Theme</button>
