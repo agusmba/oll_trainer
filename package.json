@@ -4,7 +4,7 @@
   "description": "Dev-only tooling for the OLL Trainer app: headless browser tests and the cache-busting version helper. Not part of the shipped app.",
   "scripts": {
     "check": "node dev/lint.mjs && node dev/bump-version.mjs --check",
-    "test": "node --test --test-concurrency=1 test/",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
     "test:responsive": "node --test test/responsive.test.mjs",
     "test:live": "OLL_LIVE_URL=https://agusmba.github.io/oll_trainer/ node --test test/live.test.mjs",
     "browser:install": "playwright install chromium-headless-shell",

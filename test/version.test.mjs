@@ -239,3 +239,21 @@ test('--check is a gate: fails while versions are wrong, passes once they are ri
         assert.equal(runCli(['--check'], dir).code, 0);
     } finally { clean(dir); }
 });
+
+test('a detached HEAD is measured against trunk, not against itself', () => {
+    const dir = fixture();
+    try {
+        fs.writeFileSync(path.join(dir, 'scripts', 'timer.js'), 'export const v = 2;\n');
+        git(['add', '-A'], dir);
+        git(['commit', '-q', '-m', 'work, forgot the bump'], dir);
+        git(['checkout', '-q', '--detach'], dir); // how CI checks out a pull request
+
+        const failing = runCli(['--check'], dir);
+        assert.equal(failing.code, 1, 'a detached checkout called an unbumped branch correct');
+        assert.match(failing.out, /raised to 4.*\[was 3\]/);
+        assert.deepEqual(versions(dir), ['?v1', '?v3'], '--check never writes');
+
+        assert.equal(runCli([], dir).code, 0);
+        assert.deepEqual(versions(dir), ['?v1', '?v4']);
+    } finally { clean(dir); }
+});

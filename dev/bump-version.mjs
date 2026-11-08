@@ -100,15 +100,15 @@ export function bumpVersion({ cwd = process.cwd(), dryRun = false } = {}) {
         return { status: 'no-trunk', message: 'no trunk branch to compare against (tried main, master, origin/HEAD)', entries: [] };
     }
 
-    const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], root).trim();
-    const onTrunk = branch === trunk || branch === 'HEAD';
+    const head = git(['rev-parse', 'HEAD'], root).trim();
+    // A detached HEAD is not trunk. CI checks a pull request out as a detached merge
+    // commit; treating that as trunk measures a bump against itself and always passes.
+    const onTrunk = head === git(['rev-parse', `${trunk}^{commit}`], root).trim();
 
     // The base a bump is measured over: a branch's branch point in trunk, or
     // trunk's own HEAD when work lands directly on trunk. Once a bump is
     // committed, that commit is the next base.
-    const base = onTrunk
-        ? git(['rev-parse', 'HEAD'], root).trim()
-        : git(['merge-base', 'HEAD', trunk], root).trim();
+    const base = onTrunk ? head : git(['merge-base', 'HEAD', trunk], root).trim();
 
     const html = fs.readFileSync(path.join(root, INDEX_HTML), 'utf8');
     const current = assetVersions(html);
