@@ -26,6 +26,10 @@ const TRUNK_CANDIDATES = ['main', 'master', 'origin/HEAD', 'origin/main', 'upstr
 // Matches src="scripts/timer.js?v7" / href="styles/main.css?v2".
 const ASSET_RE = /(src|href)="([^"?]+)\?v(\d+)"/g;
 
+// Matches a scripts/ or styles/ reference with no ?vN query. Such a reference ships
+// uncached: a changed file in it never reaches a browser that already loaded the page.
+const UNVERSIONED_RE = /(src|href)="((?:scripts|styles)\/[^"?]+)"/g;
+
 function git(args, cwd) {
     return execFileSync('git', args, { cwd, encoding: 'utf8' });
 }
@@ -50,9 +54,19 @@ function assetVersions(html) {
     return byDir;
 }
 
-/// Rewrite every asset ref in html to its group's target version.
+/// \returns references to scripts/ or styles/ files that carry no ?vN query
+function unversionedRefs(html) {
+    return [...html.matchAll(UNVERSIONED_RE)].map(match => match[2]);
+}
+
+/// Rewrite every asset ref in html to its group's target version, and give a version
+/// to references that have none.
 function rewriteVersions(html, targets) {
-    return html.replace(ASSET_RE, (whole, attr, ref) => {
+    const versioned = html.replace(ASSET_RE, (whole, attr, ref) => {
+        const target = targets.get(path.posix.dirname(ref));
+        return target === undefined ? whole : `${attr}="${ref}?v${target}"`;
+    });
+    return versioned.replace(UNVERSIONED_RE, (whole, attr, ref) => {
         const target = targets.get(path.posix.dirname(ref));
         return target === undefined ? whole : `${attr}="${ref}?v${target}"`;
     });
@@ -98,29 +112,44 @@ export function bumpVersion({ cwd = process.cwd(), dryRun = false } = {}) {
 
     const html = fs.readFileSync(path.join(root, INDEX_HTML), 'utf8');
     const current = assetVersions(html);
-    if (current.size === 0) {
-        return { status: 'no-versions', message: `no ?vN asset versions found in ${INDEX_HTML}`, trunk, base, entries: [] };
+    const unversioned = unversionedRefs(html);
+    if (current.size === 0 && unversioned.length === 0) {
+        return { status: 'no-versions', message: `no ?vN asset versions found in ${INDEX_HTML}`, trunk, base, entries: [], unversioned };
     }
 
     const baseHtml = gitText(['show', `${base}:${INDEX_HTML}`], root) ?? '';
     const baseVersions = assetVersions(baseHtml);
     const baseFallback = baseVersions.size ? Math.max(...baseVersions.values()) : 0;
 
+    // A group is a directory under scripts/ or styles/ that index.html references.
+    // A directory whose references carry no ?vN at all is still a group: the same rule
+    // applies to it, and the rewrite gives those references the group's version.
+    const groups = new Set(current.keys());
+    for (const ref of unversioned) groups.add(path.posix.dirname(ref));
+    const dirs = [...groups];
     const entries = [];
-    for (const [dir, version] of current) {
+    for (const dir of dirs) {
         const baseVersion = baseVersions.has(dir) ? baseVersions.get(dir) : baseFallback;
         const missed = onTrunk && missedBumpInHead(root, dir);
         const changed = changedFiles(base, dir, root);
         const target = changed.length > 0 || missed ? baseVersion + 1 : baseVersion;
-        entries.push({ dir, baseVersion, version, target, changed, changedCount: changed.length, missed });
+        entries.push({
+            dir, baseVersion, version: current.has(dir) ? current.get(dir) : null, target,
+            changed, changedCount: changed.length, missed,
+            unversionedCount: unversioned.filter(ref => path.posix.dirname(ref) === dir).length,
+        });
     }
 
-    const needsChange = entries.some(e => e.version !== e.target);
+    const targets = new Map(entries.map(e => [e.dir, e.target]));
+    const rewritten = rewriteVersions(html, targets);
+    const needsChange = rewritten !== html;
     if (!dryRun && needsChange) {
-        const targets = new Map(entries.map(e => [e.dir, e.target]));
-        fs.writeFileSync(path.join(root, INDEX_HTML), rewriteVersions(html, targets));
+        fs.writeFileSync(path.join(root, INDEX_HTML), rewritten);
     }
-    return { status: needsChange ? 'changed' : 'already-bumped', trunk, base, onTrunk, entries, applied: !dryRun && needsChange };
+    return {
+        status: needsChange ? 'changed' : 'already-bumped', trunk, base, onTrunk,
+        entries, unversioned, applied: !dryRun && needsChange,
+    };
 }
 
 function describe(entry) {
@@ -128,7 +157,9 @@ function describe(entry) {
         ? `${entry.changedCount} file(s) changed`
         : entry.missed ? 'last trunk commit changed files here without a bump' : 'nothing changed';
     const verb = entry.changedCount > 0 || entry.missed ? `raised to ${entry.target} (${reason})` : `kept at ${entry.target} (${reason})`;
-    const mark = entry.version === entry.target ? '' : `  [was ${entry.version}]`;
+    const mark = entry.version === null
+        ? `  [${entry.unversionedCount} reference(s) with no ?vN]`
+        : entry.version === entry.target ? '' : `  [was ${entry.version}]`;
     return `${entry.dir}: base v${entry.baseVersion}, ${verb}${mark}`;
 }
 
@@ -145,6 +176,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
         process.exit(result.status === 'no-trunk' || result.status === 'no-versions' ? 1 : 0);
     }
     for (const entry of result.entries) console.log(describe(entry));
+    if (result.unversioned?.length) console.log(`references with no ?vN: ${result.unversioned.join(', ')}`);
 
     if (result.status === 'already-bumped') {
         console.log(result.onTrunk

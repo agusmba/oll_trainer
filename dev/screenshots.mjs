@@ -1,7 +1,12 @@
 // Dev-only: renders the app at desktop and phone sizes and writes PNGs, so a change to
 // the interface can be looked at rather than reasoned about. Not part of the shipped app.
 //
-//   node dev/screenshots.mjs [outdir]
+//   node dev/screenshots.mjs [outdir] [--only <name-substring>] [--thumb]
+//
+// --only shoots the states whose name contains the substring, so one question does not
+// cost twelve images. --thumb writes half-resolution PNGs (~60KB against ~230KB): enough
+// to judge shape, not colour. For position questions prefer npm run probe, which reports
+// measured geometry as text.
 //
 // Needs the browser: npm run browser:install
 
@@ -10,14 +15,21 @@ import { chromium } from 'playwright';
 
 import { serveRepo } from '../test/server.mjs';
 
-const OUT = process.argv[2] || '/tmp/oll-shots';
+const args = process.argv.slice(2);
+const onlyIndex = args.indexOf('--only');
+const only = onlyIndex >= 0 ? args[onlyIndex + 1] : null;
+const thumb = args.includes('--thumb');
+const SCALE = thumb ? 0.5 : 1;
+const positional = args.find(a => !a.startsWith('--') && args.indexOf(a) !== onlyIndex + 1);
+const OUT = positional ?? (thumb ? '/tmp/oll-shots/thumb' : '/tmp/oll-shots');
 const PHONE = { width: 390, height: 844 };
 const DESKTOP = { width: 1440, height: 900 };
 
 async function shoot(browser, url, name, viewport, actions = []) {
+    if (only && !name.includes(only)) return;
     const context = await browser.newContext({
         viewport,
-        deviceScaleFactor: 1,
+        deviceScaleFactor: SCALE,
         hasTouch: viewport.width < 500,
         isMobile: viewport.width < 500,
     });
@@ -113,7 +125,7 @@ async function main() {
 
     await browser.close();
     await server.close();
-    console.log(`wrote shots to ${OUT}`);
+    console.log(`wrote shots to ${OUT}${only ? ` (only names containing "${only}")` : ''}${thumb ? ' at half resolution' : ''}`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

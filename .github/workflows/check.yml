@@ -1,0 +1,23 @@
+name: check
+
+# Nothing else runs the tests or the checks: this workflow is the guardrail.
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # bump-version:check compares index.html against trunk; a shallow checkout
+          # has no trunk ref to compare with and fails for the wrong reason.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium-headless-shell
+      - run: npm run check
+      - run: npm test

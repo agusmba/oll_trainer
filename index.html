@@ -150,6 +150,8 @@
     </div>
 </div>
 
+<!-- Load order is load-bearing: scripts/ui.js defines overlayOpen() and trapFocus(),
+    which scripts/timer.js reads to keep its keys from timing behind a dialog. -->
 <script src="scripts/algsinfo.js?v8"></script>
 <script src="scripts/algsmap.js?v8"></script>
 <script src="scripts/weights.js?v8"></script>

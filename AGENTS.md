@@ -1,56 +1,56 @@
 # OLL Trainer Guidelines
 
-## Project Overview
-OLL Trainer is a web-based tool for practicing OLL algorithms in speedcubing. The application allows users to select specific cases to practice and measures solving times.
+OLL Trainer is a web tool for practising OLL algorithms in speedcubing: pick Cases, solve
+them, record times. It ships plain files with no build step — open `index.html` to run it,
+and it works offline once downloaded. Word for the domain: `GLOSSARY.md`.
 
-## Build/Test Commands
-- To run locally, simply open index.html in a browser
-- Site can be used offline once downloaded
-- Tests are dev-only (`test/`, headless chromium over index.html); the commands live in `package.json`. The browser is fetched once into `~/.cache/ms-playwright`, outside the repo. Test files run one at a time (`--test-concurrency=1`): each file drives a browser, and several at once is enough to get the run OOM-killed.
-- `npm run test:responsive` runs only the phone/tablet suite (`test/responsive.test.mjs`): touch targets, reflow at several widths, sheet and tap gestures. `npm run shots` writes screenshots of both Modes at phone and desktop sizes to `/tmp/oll-shots` — look at the interface rather than reasoning about it. `npm run probe [w] [h]` prints the measured box of every element of the solve screen, for a layout question about geometry rather than appearance.
-- Case images are SVG. Render before looking at one: `rsvg-convert -w 300 pic/31.svg -o /tmp/case.png`
-- Cache-busting versions are managed by the dev-only helper `dev/bump-version.mjs`: `npm run bump-version` (see below), `npm run bump-version:check` to verify.
+## Checks
 
-## Code Style Guidelines
-### Organization
-- JavaScript files in `/scripts/` directory
-- CSS files in `/styles/` directory
-- SVG images for OLL cases are in `/pic/` directory
+- `npm run check` — unparsable JS, lone CR bytes in shipped files, asset references that
+  are not in the repo, cache-bust version drift. Wired as a pre-commit hook (`npm install`
+  sets `core.hooksPath`); CI runs `npm run check && npm test`.
+- `npm test` — headless chromium over a served copy. Files run one at a time
+  (`--test-concurrency=1`): each drives its own browser, and several at once is enough to
+  get the run OOM-killed on this machine. `npm run test:responsive` is the phone/tablet
+  suite alone.
+- Cache-bust: after changing anything under `scripts/` or `styles/`, run
+  `npm run bump-version`. Never edit `?vN` by hand; `dev/bump-version.mjs` holds the rule.
 
-### Interface conventions
-- Colours, radii and sizes are custom properties in `styles/main.css` (`--bg`, `--fg`, `--surface`, `--accent`, `--sel`, `--radius`, `--gap`, `--tap`, `--cell`); `scripts/ui.js` repaints by writing `--bg`, `--fg`, `--link` on `:root`. Style new controls from the tokens, and keep every tap target at least `--tap`.
-- Layouts are mobile-first: base rules for a phone, `@media (min-width: 700px)` for the two-column desktop shape. `scripts/ui.js` owns the theme and the dialogs (Settings sheet, Case card); `scripts/timer.js` reads keys only while a dialog is not open.
+## Layout questions
 
-### Naming Conventions
-- Use camelCase for variables and functions
-- Function names should use verb prefixes (e.g., `loadSelection`, `saveLocal`)
-- Use descriptive variable names (e.g., `timerActivatingButton`, `recapBacklog`)
+- `npm run probe [w] [h] [solves]` prints measured geometry plus app state (Mode, Goal,
+  weights, history length) as text. Answer a position question with this, not with images.
+- `npm run shots [--only <name>] [--thumb]` writes screenshots to `/tmp/oll-shots` when
+  appearance is the question; `--thumb` is a fraction of the size.
+- Case images are SVG. Render before looking at one:
+  `rsvg-convert -w 300 pic/31.svg -o /tmp/case.png`
+- Where the interface lives: `styles/main.css` (tokens, touch minimum),
+  `styles/selection.css` (Selection grid), `styles/timer.css` (solve screen),
+  `scripts/ui.js` (theme and dialogs).
 
-### JavaScript Patterns
-- Use localStorage for data persistence
-- Implement null checks with fallback values
+## Writing tests
 
-### Cache-busting versions
-- index.html references each script and stylesheet with a `?vN` query, so a changed asset reaches browsers that already loaded the page. N is one counter per directory (`scripts/`, `styles/`).
-- Never edit `?vN` by hand. After changing files under `scripts/` or `styles/`, run `npm run bump-version`.
-- The rule the helper enforces: a branch may raise a version by exactly ONE over trunk at its branch point, however long the branch runs; work committed straight on trunk raises by exactly ONE over trunk's HEAD. It is idempotent: it normalises an over-bumped group back down to base + 1 and leaves directories with no changes at base's version. `npm run bump-version:check` also fails when trunk's newest commit changed assets without raising their group. The bump lands in trunk at merge, and trunk becomes the next base.
+Read `test/harness.mjs` first. `openApp` and `openServedApp` take Playwright context
+options (`viewport`, `hasTouch`, `isMobile`); `tapCenter`, `boxOf`, `viewport` and
+`recordTimes` are the helpers.
+
+## Standards
+
+`CODING_STANDARDS.md` — file layout, interface conventions, naming, localStorage, what a
+test should assert. Read it when reviewing a diff, not while implementing.
 
 ## Agent skills
 
-Skill instructions are installed locally under `.agents/skills/` and are not committed (gitignored); they are vendored from `mattpocock/skills` and recorded in `skills-lock.json`. Reinstall them with the Agent Skills installer if `.agents/skills/` is missing. The repo-side config that those skills read is committed under `local-docs/agents/`.
+Skill instructions are installed locally under `.agents/skills/` and are not committed
+(gitignored); they are vendored from `mattpocock/skills` and recorded in
+`skills-lock.json`. Reinstall them with the Agent Skills installer if `.agents/skills/` is
+missing. The repo-side config those skills read is committed under `local-docs/agents/`.
 
-### Issue tracker
-
-Issues live as GitHub issues on the fork `agusmba/oll_trainer` (`gh` CLI). See `local-docs/agents/issue-tracker.md`.
-
-### Ticket lifecycle
-
-Claim, implement, close: `local-docs/agents/issue-tracker.md`. Read it before starting or closing a ticket — the implementer closes, merge auto-close is only a safety net.
-
-### Triage labels
-
-Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `local-docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: `GLOSSARY.md` at the repo root, ADRs under `local-docs/adr/`. See `local-docs/agents/domain.md`. This repo has no `docs/` directory; if a skill defaults to `docs/` or `docs/adr/`, use `local-docs/` and `local-docs/adr/` instead.
+- **Issue tracker** — GitHub issues on the fork `agusmba/oll_trainer` (`gh` CLI), and the
+  claim/implement/close lifecycle: `local-docs/agents/issue-tracker.md`. Read it before
+  starting or closing a ticket; the implementer closes, merge auto-close is a safety net.
+- **Triage labels** — `local-docs/agents/triage-labels.md`.
+- **Domain docs** — single context: `GLOSSARY.md` at the repo root, ADRs under
+  `local-docs/adr/`; see `local-docs/agents/domain.md`. There is no `docs/` directory:
+  where a skill defaults to `docs/` or `docs/adr/`, use `local-docs/` and
+  `local-docs/adr/`.

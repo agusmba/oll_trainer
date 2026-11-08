@@ -199,6 +199,29 @@ test('--check gates trunk too: fails while versions are wrong, passes once they 
     } finally { clean(dir); }
 });
 
+test('a reference with no ?vN fails --check and is given the group version by bump', () => {
+    const dir = fixture();
+    try {
+        // A new sheet added to the app without a version: it ships uncached, and the
+        // old gate could not see it because it only read references that already had ?vN.
+        fs.writeFileSync(path.join(dir, 'styles', 'selection.css'), '.grid {}\n');
+        fs.writeFileSync(path.join(dir, 'index.html'),
+            fs.readFileSync(path.join(dir, 'index.html'), 'utf8')
+                .replace('<link href="styles/main.css?v1">',
+                    '<link href="styles/main.css?v1">\n<link href="styles/selection.css">'));
+
+        const failing = runCli(['--check'], dir);
+        assert.equal(failing.code, 1, 'an unversioned reference passed the gate');
+        assert.match(failing.out, /references with no \?vN: styles\/selection\.css/);
+        assert.deepEqual(versions(dir), ['?v1', '?v3'], '--check never writes');
+
+        assert.equal(runCli([], dir).code, 0);
+        assert.deepEqual(versions(dir), ['?v2', '?v2', '?v3'],
+            'styles raised to base + 1 and the new sheet joined that version');
+        assert.equal(runCli(['--check'], dir).code, 0);
+    } finally { clean(dir); }
+});
+
 test('--check is a gate: fails while versions are wrong, passes once they are right', () => {
     const dir = fixture();
     try {

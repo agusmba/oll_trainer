@@ -20,6 +20,12 @@ await app.page.evaluate(n => {
 }, solves);
 
 console.log(await app.page.evaluate(() => {
+    const state = [
+        `mode=${window.mode}`, `goal=${window.goal}`, `selected=${window.selCases.length}`,
+        `history=${window.timesArray.length}`,
+        `backlog=${window.recapBacklog.length}`,
+        `weights=${window.selCases.slice(0, 8).map(c => `${c}:${weightOfCase(c)}`).join(' ')}`,
+    ].join(' ');
     const line = (s) => {
         const el = document.querySelector(s);
         if (!el) return s + ' MISSING';
@@ -35,6 +41,7 @@ console.log(await app.page.evaluate(() => {
     const shell = getComputedStyle(document.querySelector('.app-shell'));
     const times = document.getElementById('times');
     return [
+        state,
         line('.app-shell'), line('.topbar'), line('#selectBtn'), line('#selInfo'),
         line('.topbar-right'), line('#themeToggle'), line('#settingsToggle'),
         line('#scramble'), line('.timer-zone'), line('#timer'), line('.goal-row'),
