@@ -21,6 +21,11 @@ function itemClicked(i) {
     var td = document.getElementById("itemTd" + i);
     td.className = wasSelected ? "itemUnsel" : "itemSel";
     td.setAttribute("aria-pressed", wasSelected ? "false" : "true");
+    // The group header is the other half of this click's answer: repaint it in place so
+    // the count is right without rebuilding the grid (which would drop the cell's focus).
+    var group = groupOfCase(i);
+    if (group != null)
+        updateGroupHeader(group);
     saveSelection();
     updateTitle();
 }
@@ -87,12 +92,37 @@ function makeCaseTd(i) {
         "<span class='case-num'>" + i + "</span></td>";
 }
 
+/// \returns the group Case `i` belongs to, or null if it belongs to none
+function groupOfCase(i) {
+    for (var group in algsGroups) {
+        if (algsGroups[group].indexOf(i) != -1)
+            return group;
+    }
+    return null;
+}
+
+/// \returns the id of group `groupname`'s header cell
+function groupHeaderId(groupname) {
+    return "groupTd" + groupname.replace(/[^A-Za-z0-9]/g, "");
+}
+
+/// repaint one group's header: its Selection state and how many of its cases are selected
+function updateGroupHeader(groupname) {
+    var td = document.getElementById(groupHeaderId(groupname));
+    if (td == null)
+        return;
+    var selected = selectedInGroup(groupname);
+    td.className = selected > 0 ? "ollgrouptdSel" : "ollgrouptdUnsel";
+    td.setAttribute("aria-pressed", selected > 0 ? "true" : "false");
+    td.querySelector(".group-count").innerHTML = selected + "/" + algsGroups[groupname].length;
+}
+
 /// \returns html for one group: a header that toggles the whole group, then its cases
 function makeGroupCard(groupname) {
     var indeces = algsGroups[groupname];
     var selected = selectedInGroup(groupname);
     var s = "<table class='ollgroup'>";
-    s += "<tr class='group-head'><td class='" + (selected > 0 ? "ollgrouptdSel" : "ollgrouptdUnsel")
+    s += "<tr class='group-head'><td id='" + groupHeaderId(groupname) + "' class='" + (selected > 0 ? "ollgrouptdSel" : "ollgrouptdUnsel")
         + "' onclick='selectOllGroup(\"" + groupname + "\")' role='button' tabindex='0'" +
         " aria-pressed='" + (selected > 0 ? "true" : "false") + "' colspan='" + indeces.length + "'><b>" + groupname
         + "</b><span class='group-count'>" + selected + "/" + indeces.length + "</span></td></tr>";

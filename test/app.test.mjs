@@ -65,6 +65,57 @@ test('group header toggles the whole group', async () => {
     } finally { await app.close(); }
 });
 
+test('group header count follows a single case click, without leaving Selection Mode', async () => {
+    const app = await openServedApp();
+    try {
+        await app.page.evaluate(() => { window.selCases = []; saveSelection(); renderSelection(); });
+
+        // What a visitor reads on the group header: "n/total", plus its pressed state.
+        const header = (groupname) => app.page.evaluate(name => {
+            const td = [...document.querySelectorAll('#cases_selection .group-head td')]
+                .find(td => td.querySelector('b').textContent === name);
+            return {
+                count: td.querySelector('.group-count').textContent.trim(),
+                pressed: td.getAttribute('aria-pressed'),
+                cls: td.className,
+            };
+        }, groupname);
+
+        assert.deepEqual(await header('P-Shapes'),
+            { count: '0/4', pressed: 'false', cls: 'ollgrouptdUnsel' });
+
+        await clickCase(app.page, 31); // 31 is in P-Shapes
+        assert.deepEqual(await header('P-Shapes'),
+            { count: '1/4', pressed: 'true', cls: 'ollgrouptdSel' },
+            'the header must count the group\'s cases as they are clicked, not only after a re-render');
+
+        await clickCase(app.page, 43);
+        assert.equal((await header('P-Shapes')).count, '2/4');
+
+        await clickCase(app.page, 31); // deselect again
+        assert.equal((await header('P-Shapes')).count, '1/4');
+
+        await clickCase(app.page, 43);
+        assert.deepEqual(await header('P-Shapes'),
+            { count: '0/4', pressed: 'false', cls: 'ollgrouptdUnsel' },
+            'a group with nothing selected reads as unselected');
+
+        // Clicking a case leaves the other groups' headers alone.
+        assert.equal((await header('Squares')).count, '0/2');
+        await clickCase(app.page, 5);
+        assert.equal((await header('Squares')).count, '1/2');
+        assert.equal((await header('P-Shapes')).count, '0/4');
+
+        // Keyboard: Enter on a focused Case toggles it and keeps focus on that Case —
+        // the header is repainted in place rather than the whole grid rebuilt.
+        await app.page.locator('#itemTd5').focus();
+        await app.page.keyboard.press('Enter');
+        assert.equal((await header('Squares')).count, '0/2');
+        assert.equal(await app.page.evaluate(() => document.activeElement.id), 'itemTd5',
+            'toggling a Case from the keyboard must not throw away the focus it came from');
+    } finally { await app.close(); }
+});
+
 test('all/none header toggles 57 cases and updates the counter', async () => {
     const app = await openServedApp();
     try {
