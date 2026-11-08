@@ -2,12 +2,14 @@
 // GitHub Pages serves a user site, and nothing processed. App behaviour is proven in
 // app.test.mjs, which runs against this same served origin.
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { openServedApp, selectedCases, clickCase, caseCellIds, brokenImages } from './harness.mjs';
+import { openServedApp, selectedCases, clickCase, caseCellIds, brokenImages, closeBrowser } from './harness.mjs';
+
+after(async () => { await closeBrowser(); });
 
 test('the app is served raw under a Pages-style subpath with no errors', async () => {
     const app = await openServedApp({ prefix: '/oll/' });

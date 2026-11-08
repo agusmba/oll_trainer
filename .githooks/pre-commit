@@ -1,0 +1,8 @@
+#!/bin/sh
+# The guardrail, run before a commit lands: `npm run check` covers JS syntax, CR bytes in
+# shipped files, asset references that do not exist, and the cache-bust version rule.
+#
+# The full suite is not here: it launches a browser per test file and takes ~20s. CI runs
+# `npm run check && npm test`. The hook is wired by `npm install` (the prepare script sets
+# core.hooksPath); if it is not wired, run `git config core.hooksPath .githooks`.
+npm run check

@@ -1,4 +1,3 @@
-
 // load selected cases
 loadSelection();
 renderSelection();
@@ -19,7 +18,9 @@ function itemClicked(i) {
     else
         window.selCases.push(i);
 
-    document.getElementById("itemTd" + i).className = wasSelected ? "itemUnsel" : "itemSel" ;
+    var td = document.getElementById("itemTd" + i);
+    td.className = wasSelected ? "itemUnsel" : "itemSel";
+    td.setAttribute("aria-pressed", wasSelected ? "false" : "true");
     saveSelection();
     updateTitle();
 }
@@ -46,6 +47,17 @@ function isAtLeastOneSelected(groupName) {
     return false;
 }
 
+/// \returns how many cases of group groupName are in the Selection
+function selectedInGroup(groupName) {
+    var indeces = algsGroups[groupName];
+    var count = 0;
+    for (var i in indeces) {
+        if (selCases.indexOf(indeces[i]) != -1)
+            count++;
+    }
+    return count;
+}
+
 // select or deselect all cases in the group
 function selectOllGroup(name) {
     var aos = isAtLeastOneSelected(name);
@@ -63,71 +75,51 @@ function selectOllGroup(name) {
     saveSelection();
 }
 
-function makeTrNormal(groupname) {
-    var s = "";
+/// \returns html for one Case cell: the picture, the case number, and the Selection state
+function makeCaseTd(i) {
+    var sel = (window.selCases.indexOf(i) != -1);
+    // role=button plus aria-pressed: the cell is a toggle, and Enter activates it the way
+    // a real button does. Space stays the timer's key.
+    return "<td id='itemTd" + i + "' onclick='itemClicked(" + i + ")' class='" + (sel ? "itemSel" : "itemUnsel")
+        + "' role='button' tabindex='0' aria-pressed='" + (sel ? "true" : "false") + "'" +
+        " title='" + algsInfo[i]["name"] + "' aria-label='" + i + " " + algsInfo[i]["name"] + "'>" +
+        "<img id='sel" + i + "' src='pic/" + i + ".svg' alt='Case " + i + " " + algsInfo[i]["name"] + "'>" +
+        "<span class='case-num'>" + i + "</span></td>";
+}
+
+/// \returns html for one group: a header that toggles the whole group, then its cases
+function makeGroupCard(groupname) {
     var indeces = algsGroups[groupname];
-    s += "<tr><td class='ollgrouptdUnsel' onclick='selectOllGroup(\""+groupname
-        +"\")' colspan='"+indeces.length+"'><b>" + groupname + "</b></td></tr>";
-    s += "<tr>";
-    for (var j = 0; j < indeces.length; j++) {
-        var i = indeces[j]; // case number
-        var sel = (window.selCases.indexOf(i) != -1);
-        s += "<td id='itemTd"+i+"' onclick='itemClicked("+i+")' class='"+(sel?"itemSel":"itemUnsel")+"' title='"+algsInfo[i]["name"]+"'>"+
-        //"<img width='100px' id='sel"+i+"' src='pic/"+i+".svg' > <br>case #"+i+"</td>";
-        "<img width='100px' id='sel"+i+"' src='pic/"+i+".svg' ></td>";
-    }
-    s += "</tr>";
+    var selected = selectedInGroup(groupname);
+    var s = "<table class='ollgroup'>";
+    s += "<tr class='group-head'><td class='" + (selected > 0 ? "ollgrouptdSel" : "ollgrouptdUnsel")
+        + "' onclick='selectOllGroup(\"" + groupname + "\")' role='button' tabindex='0'" +
+        " aria-pressed='" + (selected > 0 ? "true" : "false") + "' colspan='" + indeces.length + "'><b>" + groupname
+        + "</b><span class='group-count'>" + selected + "/" + indeces.length + "</span></td></tr>";
+    s += "<tr class='group-items'>";
+    for (var j = 0; j < indeces.length; j++)
+        s += makeCaseTd(indeces[j]);
+    s += "</tr></table>";
     return s;
 }
 
-/// gn1 groupname with 4 cases, gn2 groupname with 2 cases
-function makeTr42(gn1, gn2) {
-    var s = '';
-    var in1 = algsGroups[gn1], in2 = algsGroups[gn2];
-    s += "<tr>"+
-        "<td class='ollgrouptdUnsel' onclick='selectOllGroup(\""+gn1 +"\")' colspan='"+in1.length+"'><b>" + gn1 + "</b></td>"+
-        "<td class='ollgrouptdUnsel' onclick='selectOllGroup(\""+gn2 +"\")' colspan='"+in2.length+"'><b>" + gn2 + "</b></td>"+
-        "</tr>";
-    s += "<tr>";
-    for (var j = 0; j < in1.length; j++) {
-        var i = in1[j]; // case number
-        var sel = (window.selCases.indexOf(i) != -1);
-        s += "<td id='itemTd"+i+"' onclick='itemClicked("+i+")' class='"+(sel?"itemSel":"itemUnsel")+"' title='"+algsInfo[i]["name"]+"'>"+
-        //"<img width='100px' id='sel"+i+"' src='pic/"+i+".svg' > <br>case #"+i+"</td>";
-        "<img width='100px' id='sel"+i+"' src='pic/"+i+".svg' ></td>";
-    }
-    for (var j = 0; j < in2.length; j++) {
-        var i = in2[j]; // case number
-        var sel = (window.selCases.indexOf(i) != -1);
-        s += "<td id='itemTd"+i+"' onclick='itemClicked("+i+")' class='"+(sel?"itemSel":"itemUnsel")+"' title='"+algsInfo[i]["name"]+"'>"+
-        //"<img width='100px' id='sel"+i+"' src='pic/"+i+".svg' > <br>case #"+i+"</td>";
-        "<img width='100px' id='sel"+i+"' src='pic/"+i+".svg' ></td>";
-    }
-    s += "</tr>";
-    return s;
+/// \returns html for the header that selects every case or none of them
+function makeAllNoneCard() {
+    var all = window.selCases.length == 57;
+    return "<table class='ollgroup'>" +
+        "<tr class='group-head'><td class='" + (all ? "ollgrouptdSel" : "ollgrouptdUnsel") + "'" +
+        " onclick='selectAllNone()' role='button' tabindex='0' aria-pressed='" + (all ? "true" : "false") + "' colspan='6'>" +
+        "<b>All Cases (57)</b><span class='group-count'>selected: <span id='csi'></span></span></td></tr></table>";
 }
 
 /// iterates the ollMap and highlights HTML elements according to the selection
 function renderSelection()
 {
-    var s="";
+    var s = makeAllNoneCard();
 
-    s += "<table class='olllayout'>";
-    //s += "<tr><a onclick='selectAllNone()'>select all or none</a>";
-    s += "<tr><td class='ollgrouptdUnsel' onclick='selectAllNone()' colspan='6'><b>All Cases (57)</b> | selected: <span id='csi'></span></td></tr>";
+    for (var group in algsGroups)
+        s += makeGroupCard(group);
 
-    s += makeTr42("P-Shapes", "T-Shapes");
-    s += makeTr42("I-Shapes", "Squares");
-    s += makeTr42("Fish-Shapes", "C-Shapes");
-    s += makeTr42("Knight Move Shapes", "W-Shapes");
-    s += makeTr42("Awkward Shapes", "Corners Correct, Edges Flipped");
-    s += makeTrNormal("L-Shapes");
-    s += makeTrNormal("Lightning Bolts");
-    s += makeTrNormal("All Edges Oriented Correctly");
-    s += makeTrNormal("No Edges Flipped Correctly");
-
-    s += "</table>";
     document.getElementById("cases_selection").innerHTML = s;
     updateTitle();
 }
-

@@ -7,13 +7,13 @@ import assert from 'node:assert/strict';
 
 import {
     openApp, selectedCases, lastCase, isValidScramble, caseCellIds, brokenImages,
-    clickCase, clickGroup, clickPractice, clickRecap,
+    clickCase, clickGroup, clickPractice, clickRecap, closeBrowser,
 } from './harness.mjs';
 import { serveRepo } from './server.mjs';
 
 let server;
 before(async () => { server = await serveRepo({ prefix: '/oll/' }); });
-after(async () => { await server.close(); });
+after(async () => { await server.close(); await closeBrowser(); });
 
 /// Open the app over the served http:// origin. \returns what harness.openApp returns.
 async function openServedApp() { return openApp({ url: server.url }); }
@@ -476,6 +476,17 @@ test('Practice draws are weighted by Weight, and never draw a Case outside the S
         await clickPractice(app.page);
 
         const drawn = await app.page.evaluate(() => {
+            // A fixed draw sequence (mulberry32). Weights are bounded at 8 and 1/8,
+            // so the punished Case is drawn about once in 65 times: with Math.random
+            // the loop below misses it altogether roughly one run in a hundred, and
+            // "punished > 0" is only an assertion when the sequence is known.
+            let state = 0x9e3779b9;
+            Math.random = () => {
+                state = (state + 0x6d2b79f5) | 0;
+                let t = Math.imul(state ^ (state >>> 15), 1 | state);
+                t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
             const out = [];
             for (let k = 0; k < 300; ++k) { showScramble(); out.push(window.lastCase); }
             return out;
