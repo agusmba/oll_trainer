@@ -15,10 +15,32 @@ const APP_URL = pathToFileURL(path.resolve(process.cwd(), 'index.html')).href;
 // The published origin: where GitHub Pages serves trunk of the fork.
 export const HOSTED_URL = 'https://agusmba.github.io/oll_trainer/';
 
-/// \returns { page, browser, errors, failedRequests, close }
-export async function openApp({ url = APP_URL } = {}) {
-    const browser = await chromium.launch();
-    const page = await browser.newPage();
+let sharedBrowser = null;
+
+/// One browser process per test file, with a fresh context per test: contexts keep
+/// storage and viewport isolated, and sharing the process is what keeps the machine
+/// from running out of memory when every test would otherwise launch a chromium.
+async function getBrowser() {
+    if (!sharedBrowser)
+        sharedBrowser = await chromium.launch();
+    return sharedBrowser;
+}
+
+/// Shuts the shared browser down. Call from a file's after() hook.
+export async function closeBrowser() {
+    const browser = sharedBrowser;
+    sharedBrowser = null;
+    if (browser)
+        await browser.close();
+}
+
+/// Open the app in a browser context. \param contextOptions are Playwright's context
+/// options: pass a phone viewport with hasTouch / isMobile to prove the phone layout.
+/// \returns { page, browser, context, errors, failedRequests, close }
+export async function openApp({ url = APP_URL, ...contextOptions } = {}) {
+    const browser = await getBrowser();
+    const context = await browser.newContext(contextOptions);
+    const page = await context.newPage();
 
     const errors = [];
     page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
@@ -33,9 +55,10 @@ export async function openApp({ url = APP_URL } = {}) {
     return {
         page,
         browser,
+        context,
         errors,
         failedRequests,
-        close: () => browser.close(),
+        close: () => context.close(),
     };
 }
 
@@ -88,6 +111,32 @@ export async function clickGroup(page, groupName) {
 /// Clicks Practice (Practice Mode) or Recap (Recap Mode).
 export async function clickPractice(page) { await page.click('#practiceButton'); }
 export async function clickRecap(page) { await page.click('#recapButton'); }
+
+/// Taps the middle of an element the way a finger does (needs a hasTouch context).
+export async function tapCenter(page, selector) {
+    const target = page.locator(selector);
+    await target.scrollIntoViewIfNeeded();
+    const box = await target.boundingBox();
+    if (!box)
+        throw new Error(`${selector} has no box to tap`);
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+}
+
+/// \returns { width, height } of the visible viewport
+export function viewport(page) {
+    return page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+}
+
+/// \returns { x, y, width, height } of a selector's box, or null when it is not rendered
+export function boxOf(page, selector) {
+    return page.evaluate(sel => {
+        const el = document.querySelector(sel);
+        if (!el)
+            return null;
+        const r = el.getBoundingClientRect();
+        return { x: r.x, y: r.y, width: r.width, height: r.height };
+    }, selector);
+}
 
 /// Case pictures that never rendered, by src.
 export function brokenImages(page) {

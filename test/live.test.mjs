@@ -5,13 +5,15 @@
 //   OLL_LIVE_URL=<url> node --test test/live.test.mjs  # any other deployment
 // It fails when the deployment is missing or broken, which is exactly the point.
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
     openApp, selectedCases, lastCase, caseCellIds, brokenImages,
-    clickCase, clickPractice, sidebarHref,
+    clickCase, clickPractice, sidebarHref, closeBrowser,
 } from './harness.mjs';
+
+after(async () => { await closeBrowser(); });
 
 const UPSTREAM_REPO = 'https://github.com/Roman-/oll_trainer';
 

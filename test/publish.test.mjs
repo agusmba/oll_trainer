@@ -1,10 +1,12 @@
 // What a visitor at the deployed URL sees: who wrote the original tool, and links
 // that reach this fork rather than upstream. Proven on the served page, not the file.
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { openServedApp, sidebarHref, HOSTED_URL } from './harness.mjs';
+import { openServedApp, sidebarHref, HOSTED_URL, closeBrowser } from './harness.mjs';
+
+after(async () => { await closeBrowser(); });
 
 const FORK_REPO = 'https://github.com/agusmba/oll_trainer';
 const UPSTREAM_REPO = 'https://github.com/Roman-/oll_trainer';

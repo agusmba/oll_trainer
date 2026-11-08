@@ -1,114 +1,163 @@
-<html>
-<meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/>
-<link rel="stylesheet" type="text/css" href="styles/main.css?v2">
-<link rel="stylesheet" type="text/css" href="styles/selection.css?v2">
-<link rel="stylesheet" type="text/css" href="styles/timer.css?v2">
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
 <head>
-<title>
-OLL trainer
-</title>
+<meta charset="utf-8"/>
+<meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="theme-color" content="#f4f6f8"/>
+<meta name="description" content="Practice OLL cases against a goal time: pick cases, get scrambles, time your solves."/>
+<title>OLL trainer</title>
+<link rel="stylesheet" type="text/css" href="styles/main.css?v3">
+<link rel="stylesheet" type="text/css" href="styles/selection.css?v3">
+<link rel="stylesheet" type="text/css" href="styles/timer.css?v3">
 </head>
 <body class="niceBody" id="bodyid">
-	<div class="practice_layout">
-	<table id="mainTable">
-		<tr>
-			<td id="casesBox" colspan="2">
-                <a id='selectBtn' onclick='changeMode("selection")'>select cases</a><span id='selInfo'></span>
-			</td>
-		</tr>
-		<tr>
-			<td id="scramble" colspan="2">
-                        (scramble will be there)
-			</td>
-		</tr>
-		
-		<tr>
-			<td id="timer" style="height: 100%;">
-				loading, please wait...
-			</td>
-			<td id="stats">
-                <div class="resultInfoHeader"><span id='infoHeader'></span>times (<a onclick="confirmClear();">clear</a>):</div>
-				<div id="times">
-                </div>
-			</td>
-		</tr>
-        <!-- case description box -->	
-		<tr>
-			<td colspan="2">
-				<a onclick="adjustSize('timer', 8);">increase</a>/<a onclick="adjustSize('timer', -8);">decrease</a> timer size
-				<br><a onclick="adjustSize('scramble', 5);">increase</a>/<a onclick="adjustSize('scramble', -5);">decrease</a> scramble size
-				<br>
-                colors (<a onclick='resetStyle(0)'>light</a>, <a onclick='resetStyle(1)'>dark</a>):
-                background <input type='text' value='#f5f5f5' class='settinginput' id='bgcolor_in' onchange="applystyle();" placeholder='#f5f5f5' maxlength='12'/>
-              , text <input type='text' value='black' class='settinginput' id='textcolor_in' onchange="applystyle();"  placeholder='#000' maxlength='12'/>
-              , links <input type='text' value='#004411' class='settinginput' id='linkscolor_in' onchange="applystyle();"  placeholder='#004411' maxlength='12'/>
-              , goal (ms) <input type='number' value = 0 class='settinginput' id='goal_in' min=0 onchange="applyGoal();" placeholder=0 max=10000 title="Goal in ms to beat in each alg solve. If your time is at or under the goal, the probability of getting the same alg again decreases. If it is slower, the probability increases. Leave this at 0 (default) to keep every selected alg with the same probability."/> (0 or empty to ignore dynamic weights) <a id='resetWeightsLink' onclick='applyResetWeights();' title='Set every selected case back to the same probability. Keeps your selection and your recorded times.'>reset weights</a>
-              <br>
-			<span id="last_scramble">
-			Any questions/suggestions/bugs reports - open an issue on <a href="https://github.com/agusmba/oll_trainer/issues" target="_blank" class="settings">the fork's issues</a>
-			</span>
-			</td>
-		</tr>
-	</table>
-    </div> <!-- practice_layout -->
 
-<!-- hint box -->
-    <div id="hintWindow">
-        <table id='box'>
-            <tr>
-                <td rowspan='4'>
-                    <img id='boxImg'/>
-                </td>
-                <td id='boxTitle'>
-                </td>
-            </tr>
-            <tr>
-                <td id='boxalg'>
-                </td>
-            </tr>
-            <tr>
-                <td id='boxsetup'>
-                </td>
-            </tr>
-        </table>
-    </div>
-	<div id="hintWindowBack" onclick='hideBox();'></div>
+<!-- Practice / Recap Mode: one solve at a time. -->
+<div class="practice_layout">
+    <div class="app-shell">
+        <header class="topbar">
+            <button type="button" class="btn btn-ghost" id="selectBtn" onclick='changeMode("selection")'>Select cases</button>
+            <span id="selInfo" class="pill"></span>
+            <div class="topbar-right">
+                <button type="button" class="icon-btn" id="themeToggle" onclick="toggleTheme()"
+                        title="Switch between light and dark" aria-label="Switch between light and dark theme">Theme</button>
+                <button type="button" class="icon-btn" id="settingsToggle" onclick="openSettings()"
+                        aria-expanded="false" aria-controls="settingsSheet">Settings</button>
+            </div>
+        </header>
 
-	<div class="selection_layout">
-        <div>
-            <h1>OLL Trainer</h1>
-            <ul>
-                <li>Click on the picture to select / deselect the case</li>
-                <li>Click on the group header select / deselect all cases in the group</li>
-                <li>When you're ready, click Practice or Recap button on the right to start practicing</li>
-                <li>Original tool by <a target="_blank" href="https://github.com/Roman-/oll_trainer">Roman Strakhov</a> &mdash; this fork adapts it</li>
-                <li>Any questions/suggestions/bugs reports - please open an issue on <a target="_blank" href="https://github.com/agusmba/oll_trainer/issues">the fork's issues</a></li>
-                <li>GitHub repo: <a href='https://github.com/agusmba/oll_trainer'>click</a>, download offline version: <a href='https://github.com/agusmba/oll_trainer/archive/main.zip'>zip</a></li>
-            </ul>
+        <div id="scramble">(scramble will be there)</div>
+
+        <div class="timer-zone">
+            <!-- role=button with tabindex: the clock is the screen's main control, and
+                 Space / Enter reach it from the keyboard as well as the finger. -->
+            <div id="timer" role="button" tabindex="0" aria-label="Clock: press and release Space, or press and release the clock, to start. Press again to stop.">loading, please wait...</div>
+            <p class="timer-caption" id="timerCaption"></p>
         </div>
-		<div id="cases_selection">
-		</div>
-		<div class="btns-right">
-            <a class='abutton' id='practiceButton' onclick='changeMode("practice")' title='Practice the selected cases'>Practice</a> <br>
-            <a class='abutton' id='recapButton' onclick='changeMode("recap")' title='Go through all the selected cases once'>Recap</a>
-		</div>
-	</div> <!-- selection layout -->
 
-</body>
-</html>
-<script src="scripts/algsinfo.js?v7"></script>
-<script src="scripts/algsmap.js?v7"></script>
-<script src="scripts/weights.js?v7"></script>
-<script src="scripts/saveload.js?v7"></script>
-<script src="scripts/selection.js?v7"></script>
-<script src="scripts/timer.js?v7"></script>
-<script src="scripts/practice.js?v7"></script>
+        <!-- Goal and reset weights stay on the solve screen: they are the two knobs
+             you reach for between solves. -->
+        <div class="goal-row">
+            <label for="goal_in">Goal (ms)</label>
+            <input type="number" class="field settinginput" id="goal_in" value=0 min=0 max=10000
+                   inputmode="numeric" placeholder=0 onchange="applyGoal();"
+                   title="Goal in ms to beat in each alg solve. If your time is at or under the goal, the probability of getting the same alg again decreases. If it is slower, the probability increases. Leave this at 0 (default) to keep every selected alg with the same probability."/>
+            <button type="button" class="btn btn-ghost" id="resetWeightsLink" onclick='applyResetWeights();'
+                    title="Set every selected case back to the same probability. Keeps your selection and your recorded times.">Reset weights</button>
+            <span class="goal-note">At or under the Goal, a Case gets drawn less often; slower, more often. Keep 0 to draw every Case equally.</span>
+        </div>
+
+        <section id="stats">
+            <div class="resultInfoHeader">
+                <span id='infoHeader'></span>times
+                <a role="button" tabindex="0" onclick="confirmClear();">clear</a>
+            </div>
+            <div id="times"></div>
+        </section>
+
+        <footer class="practice-footer">
+            <span id="last_scramble"></span>
+            <span>Questions/suggestions/bugs reports - open an issue on <a href="https://github.com/agusmba/oll_trainer/issues" target="_blank" rel="noopener" class="settings">the fork's issues</a></span>
+        </footer>
+    </div> <!-- app-shell -->
+
+    <aside class="sheet" id="settingsSheet" hidden>
+        <div class="sheet-backdrop" onclick="closeSettings()"></div>
+        <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+            <div class="sheet-head">
+                <h2 id="settingsTitle">Settings</h2>
+                <button type="button" class="icon-btn" id="settingsDone" onclick="closeSettings()">Done</button>
+            </div>
+
+            <div class="sheet-row">
+                <span>Theme</span>
+                <button type="button" class="btn btn-ghost" onclick="setThemePreference('light')">Light</button>
+                <button type="button" class="btn btn-ghost" onclick="setThemePreference('dark')">Dark</button>
+                <button type="button" class="btn btn-ghost" onclick="setThemePreference('auto')">Auto</button>
+            </div>
+
+            <div class="sheet-row">
+                <span>Colors</span>
+                background <input type="color" class="field settinginput" id="bgcolor_in" value="#f4f6f8" onchange="applystyle();"/>
+                text <input type="color" class="field settinginput" id="textcolor_in" value="#16191f" onchange="applystyle();"/>
+                links <input type="color" class="field settinginput" id="linkscolor_in" value="#0f6f4f" onchange="applystyle();"/>
+            </div>
+
+            <div class="sheet-row">
+                <span>Timer size</span>
+                <button type="button" class="icon-btn" onclick="adjustSize('timer', 8)" aria-label="Increase timer size">A+</button>
+                <button type="button" class="icon-btn" onclick="adjustSize('timer', -8)" aria-label="Decrease timer size">A-</button>
+                <span>Scramble size</span>
+                <button type="button" class="icon-btn" onclick="adjustSize('scramble', 4)" aria-label="Increase scramble size">A+</button>
+                <button type="button" class="icon-btn" onclick="adjustSize('scramble', -4)" aria-label="Decrease scramble size">A-</button>
+                <button type="button" class="btn btn-ghost" onclick="resetDefaults()">Reset sizes</button>
+            </div>
+
+            <div class="sheet-row">
+                <span>Timing</span>
+                <span class="hint">Press and release Space to start; press again (any key) to stop.
+                    On a touch screen, press and release the clock to start, press again to stop.
+                    Delete removes the last time, Shift+Delete clears the session, Esc closes the case card.</span>
+            </div>
+        </div>
+    </aside>
+</div> <!-- practice_layout -->
+
+<!-- Selection Mode: the 57 cases, grouped by shape. -->
+<div class="selection_layout">
+    <div class="selection-inner">
+        <header class="selection-head">
+            <h1>OLL Trainer</h1>
+            <p class="lede">Pick the cases to practice, then time your solves against a Goal.</p>
+        </header>
+
+        <div class="selection-body">
+            <div id="cases_selection"></div>
+
+            <aside class="notes">
+                <ul>
+                    <li>Tap or click on the picture to select / deselect the case</li>
+                    <li>Tap or click on the group header select / deselect all cases in the group</li>
+                    <li>Practice draws the Selection by Weight; Recap replays every selected Case once</li>
+                    <li>Original tool by <a target="_blank" rel="noopener" href="https://github.com/Roman-/oll_trainer">Roman Strakhov</a> &mdash; this fork adapts it</li>
+                    <li>Any questions/suggestions/bugs reports - please open an issue on <a target="_blank" rel="noopener" href="https://github.com/agusmba/oll_trainer/issues">the fork's issues</a></li>
+                    <li>GitHub repo: <a href='https://github.com/agusmba/oll_trainer'>click</a>, download offline version: <a href='https://github.com/agusmba/oll_trainer/archive/main.zip'>zip</a></li>
+                </ul>
+            </aside>
+        </div>
+
+        <div class="btns-right">
+            <button type="button" class="abutton" id='practiceButton' onclick='changeMode("practice")' title='Practice the selected cases'>Practice</button>
+            <button type="button" class="abutton" id='recapButton' onclick='changeMode("recap")' title='Go through all the selected cases once'>Recap</button>
+        </div>
+    </div> <!-- selection-inner -->
+</div> <!-- selection layout -->
+
+<!-- Case peek: picture, name, algs and the setup the scramble is built from. -->
+<div id="hintWindowBack" onclick='hideBox();'></div>
+<div id="hintWindow" role="dialog" aria-modal="true" aria-labelledby="boxTitle">
+    <div id="box">
+        <img id="boxImg" alt="OLL case diagram"/>
+        <div>
+            <div id="boxTitle"></div>
+            <div id="boxalg"></div>
+            <div id="boxsetup"></div>
+        </div>
+        <button type="button" class="icon-btn sheet-close" id="boxClose" onclick="hideBox()" aria-label="Close case card">Done</button>
+    </div>
+</div>
+
+<script src="scripts/algsinfo.js?v8"></script>
+<script src="scripts/algsmap.js?v8"></script>
+<script src="scripts/weights.js?v8"></script>
+<script src="scripts/saveload.js?v8"></script>
+<script src="scripts/selection.js?v8"></script>
+<script src="scripts/timer.js?v8"></script>
+<script src="scripts/ui.js?v8"></script>
+<script src="scripts/practice.js?v8"></script>
 <script>
 changeMode("selection");
 </script>
-
-
-<script>
-
-
-</script>
+</body>
+</html>

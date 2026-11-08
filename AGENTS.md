@@ -7,6 +7,7 @@ OLL Trainer is a web-based tool for practicing OLL algorithms in speedcubing. Th
 - To run locally, simply open index.html in a browser
 - Site can be used offline once downloaded
 - Tests are dev-only (`test/`, headless chromium over index.html); the commands live in `package.json`. The browser is fetched once into `~/.cache/ms-playwright`, outside the repo.
+- `npm run test:responsive` runs only the phone/tablet suite (`test/responsive.test.mjs`): touch targets, reflow at several widths, sheet and tap gestures. `npm run shots` writes screenshots of both Modes at phone and desktop sizes to `/tmp/oll-shots` — look at the interface rather than reasoning about it.
 - Case images are SVG. Render before looking at one: `rsvg-convert -w 300 pic/31.svg -o /tmp/case.png`
 - Cache-busting versions are managed by the dev-only helper `dev/bump-version.mjs`: `npm run bump-version` (see below), `npm run bump-version:check` to verify.
 
@@ -15,6 +16,10 @@ OLL Trainer is a web-based tool for practicing OLL algorithms in speedcubing. Th
 - JavaScript files in `/scripts/` directory
 - CSS files in `/styles/` directory
 - SVG images for OLL cases are in `/pic/` directory
+
+### Interface conventions
+- Colours, radii and sizes are custom properties in `styles/main.css` (`--bg`, `--fg`, `--surface`, `--accent`, `--sel`, `--radius`, `--gap`, `--tap`, `--cell`); `scripts/ui.js` repaints by writing `--bg`, `--fg`, `--link` on `:root`. Style new controls from the tokens, and keep every tap target at least `--tap`.
+- Layouts are mobile-first: base rules for a phone, `@media (min-width: 700px)` for the two-column desktop shape. `scripts/ui.js` owns the theme and the dialogs (Settings sheet, Case card); `scripts/timer.js` reads keys only while a dialog is not open.
 
 ### Naming Conventions
 - Use camelCase for variables and functions

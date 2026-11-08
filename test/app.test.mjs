@@ -7,13 +7,13 @@ import assert from 'node:assert/strict';
 
 import {
     openApp, selectedCases, lastCase, isValidScramble, caseCellIds, brokenImages,
-    clickCase, clickGroup, clickPractice, clickRecap,
+    clickCase, clickGroup, clickPractice, clickRecap, closeBrowser,
 } from './harness.mjs';
 import { serveRepo } from './server.mjs';
 
 let server;
 before(async () => { server = await serveRepo({ prefix: '/oll/' }); });
-after(async () => { await server.close(); });
+after(async () => { await server.close(); await closeBrowser(); });
 
 /// Open the app over the served http:// origin. \returns what harness.openApp returns.
 async function openServedApp() { return openApp({ url: server.url }); }

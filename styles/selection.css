@@ -1,70 +1,207 @@
-.selection_layout
-{
+/* Selection Mode: the case grid, its group cards and the Practice / Recap bar.
+ * Mode visibility is inline style ('initial' / 'none') set by setMode(), so this
+ * file only styles the layout when the mode is showing. */
+
+.selection_layout {
     display: none;
 }
 
-#sl {white-space: nowrap;}
-
-table.olllayout {
-    /*width: 100%;*/
+.selection-inner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: calc(var(--gap) + env(safe-area-inset-top)) var(--gap) 0;
+    max-width: 1180px;
+    margin: 0 auto;
 }
-td.itemUnsel {
+
+.selection-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 16px;
+}
+
+.lede { margin: 0; color: var(--muted); font-size: .9rem; }
+
+.selection-body {
+    display: grid;
+    gap: var(--gap);
+    flex: 1;
+}
+
+/* One card per shape group. The table stays a table in markup (cells are the
+   case slots) but lays out as a wrapping grid, so the 57 pictures reflow from
+   six across on a desktop to four across on a phone without horizontal scroll. */
+.ollgroup,
+.ollgroup tbody {
+    display: block;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.ollgroup + .ollgroup { margin-top: var(--gap); }
+
+.ollgroup tr {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--cell), 1fr));
+    gap: 3px;
+    padding: 3px;
+}
+
+.ollgroup td { display: block; border: none; }
+
+.ollgrouptdUnsel,
+.ollgrouptdSel {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: var(--tap);
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    background-color: var(--surface-2);
+    color: var(--fg);
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.ollgrouptdSel { background-color: var(--sel); color: var(--sel-ink); }
+
+.group-count {
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.ollgrouptdSel .group-count { color: var(--sel-ink); }
+
+td.itemUnsel,
+td.itemSel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 2px;
+    min-height: var(--cell);
+    border-radius: var(--radius-sm);
     cursor: pointer;
     text-align: center;
-    -moz-user-select: none; -webkit-user-select: none; -ms-user-select:none; user-select:none;-o-user-select:none;
-    background-color: none;
+    user-select: none;
+    -webkit-user-select: none;
+    background-color: transparent;
 }
+
+td.itemUnsel:hover { background-color: var(--surface-2); }
 
 td.itemSel {
-    cursor: pointer;
-    text-align: center;
-    -moz-user-select: none; -webkit-user-select: none; -ms-user-select:none; user-select:none;-o-user-select:none;
-    background-color: yellow;
-    color: black;
+    background-color: var(--sel);
+    color: var(--sel-ink);
+    box-shadow: inset 0 0 0 2px var(--accent);
 }
 
-td.ollgrouptdSel {
-    cursor: pointer;
-    -moz-user-select: none; -webkit-user-select: none; -ms-user-select:none; user-select:none;-o-user-select:none;
-    background-color: yellow;
-    color: black;
-    border-bottom: 2px solid white;
+#cases_selection img {
+    display: block;
+    width: 100%;
+    max-width: 96px;
+    height: auto;
 }
 
-td.ollgrouptdUnsel {
-    cursor: pointer;
-    -moz-user-select: none; -webkit-user-select: none; -ms-user-select:none; user-select:none;-o-user-select:none;
-    background-color: none;
-    border-bottom: 2px solid;
+.case-num {
+    font-size: .72rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
 }
 
+td.itemSel .case-num { color: var(--sel-ink); font-weight: 700; }
+
+/* Practice / Recap live at the bottom of the scroll on every screen: the two
+   actions that end Selection Mode stay under the thumb on a phone and under the
+   cursor on a desktop, without covering the grid. */
 .btns-right {
-    position: fixed;
-    right: 2px;
-    top: 2px;
-    font-size: 30px;
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: stretch;
+    gap: var(--gap);
+    padding: var(--gap) 0 calc(var(--gap) + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--bg) 65%, transparent);
 }
 
-a.settings {
-    text-decoration: underline;
-    color: #004411;
-    cursor: pointer;
-}
-
-td {border: 1px solid #000;}
-
-/* done button that appends ">" on hover */
 .abutton {
-    float: right;
-  display: inline-block; border-radius: 2px; background-color: #95a5a6; border: none; color: #FFFFFF; text-align: center; font-size: 28px; padding: 10px; transition: all 0.3s; cursor: pointer; margin: 5px;}
-.abutton span { cursor: pointer; display: inline-block; position: relative; transition: 0.3s;}
-.abutton span:after {content: '»'; position: absolute; opacity: 0; top: 0; right: -20px; transition: 0.3s;}
-.abutton:hover span { padding-right: 25px;}
-.abutton:hover {background-color: #74898b;}
-.abutton:hover span:after {opacity: 1; right: 0;}
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 52px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background-color: var(--accent);
+    color: var(--accent-ink);
+    font-family: inherit;
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: filter .18s, transform .18s;
+    margin: 0;
+}
 
-/* blue button change color on hover */
-.dbutton {
-  display: inline-block; border-radius: 2px; background-color: #95a5a6; border: none; color: #FFFFFF; text-align: center; font-size: 18px; padding: 10px; transition: all 0.3s; cursor: pointer; margin: 5px;}
-.dbutton:hover {background-color: #74898b;}	
+.abutton:hover { filter: brightness(1.08); }
+.abutton:active { transform: translateY(1px); }
 
+#recapButton {
+    background-color: var(--surface);
+    color: var(--fg);
+    box-shadow: inset 0 0 0 1px var(--border);
+}
+
+#recapButton:hover { background-color: var(--surface-2); }
+
+.notes {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: var(--gap);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background-color: var(--surface);
+    font-size: .9rem;
+}
+
+.notes ul { margin: 0; padding-left: 1.1em; }
+.notes li { margin-bottom: 4px; }
+
+a.settings { text-decoration: underline; color: var(--link); cursor: pointer; }
+
+/* Pointer-capable, roomy screens: bigger pictures, notes in a side column,
+   the action bar aligned right instead of stretched across the screen. */
+@media (min-width: 700px) {
+    :root { --cell: 82px; }
+    .selection-body { grid-template-columns: minmax(0, 1fr) minmax(240px, 320px); align-items: start; }
+    .btns-right { justify-content: flex-end; }
+    .abutton { flex: 0 0 auto; min-width: 160px; }
+}
+
+@media (min-width: 1000px) {
+    :root { --cell: 96px; }
+}
+
+/* A finger needs more than a cursor does: the same controls grow on touch. */
+@media (pointer: coarse) {
+    .abutton { min-height: 56px; }
+    /* A tap leaves a hover state behind on a touch screen, so hover styling is off. */
+    td.itemUnsel:hover { background-color: inherit; }
+    .ollgrouptdSel:hover { border-color: var(--border); }
+}

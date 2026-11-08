@@ -24,6 +24,18 @@ _Avoid_: probability, frequency
 The trio of Selection + Goal + Weight. Changing any member resets the Weight of the whole Selection.
 _Avoid_: session (overloaded — the times history is a separate thing)
 
+**Case card**:
+The dialog that shows one Case while solving: its picture, name, the alg and the setup the scramble came from. Opened from a Case name in the times history. Lives in the markup as `hintWindow` / `box`, which is the picture's window, not the Case itself.
+_Avoid_: hint, peek, popup
+
+**Settings sheet**:
+The modal holding Theme, Colours, sizes and the timing notes. A sheet because it is dismissed, not submitted: Esc and Done both close it, and nothing else takes keys while it is open.
+_Avoid_: sidebar, options panel
+
+**Theme**:
+Light or dark, chosen as a preference (`light`, `dark`, `auto`) and resolved to one of the two palettes — the background, text and link colours the Theme writes. A custom colour is an explicit choice that a later Theme change replaces.
+_Avoid_: colour scheme, mode (belongs to Mode)
+
 **Mode**:
 The single stored state of what the trainer is doing: Selection, Practice, or Recap. Mode is set explicitly; it is never inferred from whether a list is empty.
 _Avoid_: train, mode flags, recapInProgress
