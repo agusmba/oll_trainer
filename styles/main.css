@@ -19,6 +19,12 @@
     --ready: #0a7a3c;
     --stopped: #b3001b;
 
+    /* The Selection tiles are painted by Weight, so the fill is a hue the script hands
+       over as --case-hue; these three hold the colour that hue is mixed into. */
+    --weight-sat: 62%;
+    --weight-fill: 46%;
+    --weight-ink: #ffffff;
+
     --radius: 14px;
     --radius-sm: 8px;
     --gap: 12px;
@@ -49,6 +55,8 @@
     --sel-ink: #fff4d6;
     --ready: #37c99a;
     --stopped: #ff7b7b;
+
+    --weight-fill: 42%;
 
     --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 28px rgba(0, 0, 0, .45);
 }

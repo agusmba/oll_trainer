@@ -6,7 +6,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-    openApp, clickCase, clickPractice, brokenImages, caseCellIds,
+    openApp, clickCase, clickGroup, clickPractice, brokenImages, caseCellIds,
     tapCenter, viewport, boxOf, recordTimes, closeBrowser,
 } from './harness.mjs';
 import { serveRepo } from './server.mjs';
@@ -64,7 +64,7 @@ test('a long scramble wraps inside its box instead of overflowing the screen', a
         await clickPractice(app.page);
         await app.page.evaluate(() => {
             document.getElementById('scramble').innerHTML =
-                'scramble: R U2 R\' U2 R\' U\' R2 U\' R\' U\' R U\' R2 U2 R\' U\' R\' U2 R\' U\' R\' F R F\' U2\' (R\' F R F\')';
+                "R U2 R' U2 R' U' R2 U' R' U' R U' R2 U2 R' U' R' U2 R' U' R' F R F' U2' (R' F R F')";
         });
         const box = await boxOf(app.page, '#scramble');
         assert.ok(box.width <= app.screen.width, `scramble box is ${box.width} wide on a ${app.screen.width}px screen`);
@@ -232,6 +232,10 @@ test('the case peek opens as a sheet within the screen and closes on Esc', async
         const box = await boxOf(app.page, '#box');
         assert.ok(box && box.y >= 0 && box.y + box.height <= app.screen.height + 1,
             `the case card runs off the screen (${box && box.y} + ${box && box.height})`);
+        // centred rather than pinned to the bottom edge, where a finger cannot reach it
+        const centred = (app.screen.height - box.height) / 2;
+        assert.ok(Math.abs(box.y - centred) <= 24,
+            `the case card sits at y=${box.y}, not centred (${Math.round(centred)} on a ${app.screen.height}px screen)`);
         assert.match(await app.page.textContent('#boxalg'), /[RLUDFB]/, 'the alg is not shown in the case card');
         assert.ok(await app.page.evaluate(() => document.getElementById('boxImg').complete
             && document.getElementById('boxImg').naturalWidth > 0), 'the case picture did not render in the card');
@@ -274,6 +278,122 @@ test('a tap inside a settings field does not reach the timer', async () => {
             'the Goal only takes effect once the field is committed');
         await app.page.keyboard.press('Tab');
         assert.equal(await app.page.evaluate(() => window.goal), 1200);
+    } finally { await app.close(); }
+});
+
+test('a stacked solve screen doubles the times panel', async () => {
+    // No second column on a phone, so the times panel is the row that grows: half the
+    // screen, with the clock kept above the fold where the hand is.
+    const app = await openPhone();
+    try {
+        await clickPractice(app.page);
+        await recordTimes(app.page, 120);
+
+        const screen = await viewport(app.page);
+        const stats = await boxOf(app.page, '#stats');
+        const timer = await boxOf(app.page, '#timer');
+        assert.ok(stats.height >= screen.height * 0.45,
+            `the times panel gets only ${stats.height}px on a ${screen.height}px screen`);
+
+        const list = await app.page.evaluate(() => {
+            const el = document.getElementById('times');
+            return { scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
+        });
+        assert.ok(list.scrollHeight > list.clientHeight,
+            `the history did not scroll inside itself (${list.scrollHeight} content in ${list.clientHeight})`);
+        assert.ok(timer.y + timer.height <= screen.height,
+            `the clock runs to y=${timer.y + timer.height}, past the ${screen.height}px screen`);
+    } finally { await app.close(); }
+});
+
+test('the Selection summary shows every selected Case above the detailed times', async () => {
+    const app = await openPhone();
+    try {
+        // The group header toggles: the Selection starts partial, so it takes two taps to get all 57
+        await clickGroup(app.page, 'All Cases (57)');
+        await clickGroup(app.page, 'All Cases (57)');
+        await clickPractice(app.page);
+        await recordTimes(app.page, 60);
+
+        const counts = await app.page.evaluate(() => ({
+            tiles: document.querySelectorAll('.case-tile').length,
+            selected: window.selCases.length,
+            empty: document.querySelectorAll('.case-tileEmpty').length,
+        }));
+        assert.equal(counts.tiles, counts.selected,
+            `the summary shows ${counts.tiles} tiles for ${counts.selected} selected Cases`);
+        assert.ok(counts.empty > 0, 'a selected Case with no times still needs a tile');
+
+        const summary = await boxOf(app.page, '#caseSummary');
+        const times = await boxOf(app.page, '#times');
+        assert.ok(summary.y + summary.height <= times.y + 1,
+            `the summary ends at ${summary.y + summary.height}, below the history starting at ${times.y}`);
+        assert.ok(times.height >= app.screen.height * 0.18,
+            `the detailed history gets only ${times.height}px`);
+        assert.ok(summary.height <= (summary.height + times.height) * 0.5,
+            `the summary takes ${summary.height}px against ${times.height}px of history`);
+
+        const head = await boxOf(app.page, '.summary-head');
+        assert.ok(head.height <= 22, `the summary caption is ${head.height}px tall - it should read as one line`);
+
+        const tile = await boxOf(app.page, '.case-tile');
+        assert.ok(tile.height >= 44, `a tile is ${tile.height}px tall - too small to tap for the case card`);
+
+        const grid = await app.page.evaluate(() => {
+            const el = document.querySelector('.case-tiles');
+            return { scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
+        });
+        assert.ok(grid.scrollHeight > grid.clientHeight,
+            `the tiles did not scroll inside themselves (${grid.scrollHeight} tiles in ${grid.clientHeight})`);
+
+        const mean = await app.page.evaluate(() => {
+            const tile = [...document.querySelectorAll('.case-tile')]
+                .find(el => el.querySelector('.tile-case').textContent == '10');
+            const solved = window.timesArray.filter(r => r.case == 10);
+            return {
+                shown: tile.querySelector('.tile-mean').textContent,
+                mean: msToHumanReadable(solved.reduce((s, r) => s + r.ms, 0) / solved.length),
+            };
+        });
+        assert.equal(mean.shown, mean.mean, `the tile reads "${mean.shown}" for a mean of ${mean.mean}`);
+    } finally { await app.close(); }
+});
+
+test('a tile is coloured by Weight: drawn more often is redder, less often greener', async () => {
+    const app = await openPhone();
+    try {
+        await clickPractice(app.page);
+        await app.page.evaluate(() => {
+            window.goal = 1000;
+            bumpWeight(31, 3000, 1000);
+            bumpWeight(31, 3000, 1000); // heavier than the even draw
+            bumpWeight(32, 500, 1000);  // lighter than the even draw
+            displayCaseSummary();
+        });
+
+        const fills = await app.page.evaluate(() => {
+            const out = {};
+            for (const tile of document.querySelectorAll('.case-tile'))
+                out[tile.querySelector('.tile-case').textContent] = getComputedStyle(tile).backgroundColor;
+            return out;
+        });
+        const rgb = s => s.match(/\d+/g).map(Number);
+        const redness = s => rgb(s)[0] - rgb(s)[1];
+        assert.ok(redness(fills['31']) > 0, `a heavy Weight is not red: ${fills['31']}`);
+        assert.ok(redness(fills['32']) < 0, `a light Weight is not green: ${fills['32']}`);
+        assert.ok(redness(fills['31']) > redness(fills['32']),
+            `weight 4 reads ${fills['31']} and weight 1/2 reads ${fills['32']}`);
+    } finally { await app.close(); }
+});
+
+test('the Goal strip reads as one line under the controls', async () => {
+    const app = await openPhone();
+    try {
+        await clickPractice(app.page);
+        const note = await boxOf(app.page, '.goal-note');
+        const row = await boxOf(app.page, '.goal-row');
+        assert.ok(note.height <= 24, `the Goal note is ${note.height}px tall - it should be one line`);
+        assert.ok(row.height <= 84, `the Goal strip takes ${row.height}px of the stacked screen`);
     } finally { await app.close(); }
 });
 

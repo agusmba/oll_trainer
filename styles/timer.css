@@ -10,7 +10,9 @@
 .app-shell {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto minmax(0, 1fr) auto minmax(0, 26svh) auto;
+    /* Stacked screens have no second column, so the results get twice the screen:
+       the clock keeps its minimum height and the solve screen scrolls a little. */
+    grid-template-rows: auto auto minmax(0, 1fr) auto minmax(0, 52svh) auto;
     grid-template-areas:
         "topbar"
         "scramble"
@@ -32,7 +34,7 @@
 /* Viewport units that track the URL bar are newer than the others; the fixed
    version still lays the solve out in order where svh / dvh are unknown. */
 @supports not (height: 1svh) {
-    .app-shell { grid-template-rows: auto auto minmax(0, 1fr) auto minmax(0, 26vh) auto; }
+    .app-shell { grid-template-rows: auto auto minmax(0, 1fr) auto minmax(0, 52vh) auto; }
 }
 
 .topbar {
@@ -204,6 +206,88 @@
     color: var(--muted);
 }
 
+/* Selection summary: one tile per selected Case above the detailed times. The tile is
+   filled by Weight and holds the Case's mean solve, so the draw is readable at a glance
+   and the history below it stays scrollable. */
+#caseSummary {
+    flex: 0 0 auto;
+    min-width: 0;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+#caseSummary[hidden] { display: none; }
+
+.summary-head {
+    display: flex;
+    align-items: baseline;
+    gap: 4px 10px;
+    font-size: .72rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.summary-title { font-weight: 700; }
+
+.summary-legend {
+    letter-spacing: 0;
+    text-transform: none;
+    font-size: .72rem;
+}
+
+.case-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+    gap: 4px;
+    margin-top: 6px;
+    /* The tiles are the whole Selection, so they bound themselves and scroll inside,
+       leaving the history below them the larger share of the panel. */
+    max-height: 18vh;
+    max-height: 18svh;
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+
+.case-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    min-height: var(--tap);
+    padding: 4px 2px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background-color: hsl(var(--case-hue, 60), var(--weight-sat), var(--weight-fill));
+    color: var(--weight-ink);
+    font-family: var(--font);
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.tile-case {
+    font-size: .8rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.tile-mean {
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-variant-numeric: tabular-nums;
+    opacity: .9;
+}
+
+/* A selected Case with no times yet: still coloured by its Weight - the fill is the draw,
+   not the result - but ringed, and its mean has nothing to read. */
+.case-tileEmpty {
+    box-shadow: inset 0 0 0 1px var(--border);
+}
+
 #times {
     flex: 1 1 auto;
     min-height: 0;
@@ -373,16 +457,18 @@ span.ollNameStats:hover { color: var(--accent); }
     inset: 0;
     z-index: 42;
     display: none;
-    align-items: flex-end;
+    /* Vertically centred on every screen: a card pinned to the bottom edge is the one
+       thing a finger cannot reach, and on a short screen it runs off the top. */
+    align-items: center;
     justify-content: center;
     pointer-events: none;
 }
 
 #hintWindow > #box {
     pointer-events: auto;
-    width: 100%;
-    max-height: 84vh;
-    max-height: 84svh;
+    width: min(560px, 92vw);
+    max-height: 88vh;
+    max-height: 88svh;
     overflow: auto;
     display: flex;
     flex-wrap: wrap;
@@ -390,8 +476,8 @@ span.ollNameStats:hover { color: var(--accent); }
     gap: var(--gap);
     padding: var(--gap);
     border: 1px solid var(--border);
-    border-top: 3px solid var(--accent);
-    border-radius: var(--radius) var(--radius) 0 0;
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
     background-color: var(--surface);
     box-shadow: var(--shadow);
 }
@@ -405,17 +491,6 @@ span.ollNameStats:hover { color: var(--accent); }
 #boxsetup { font-style: italic; color: var(--muted); font-size: .85rem; }
 
 .sheet-close { margin-left: auto; }
-
-@media (min-width: 700px) {
-    #hintWindow { align-items: center; justify-content: center; }
-    #hintWindow > #box {
-        width: 560px;
-        max-height: 84vh;
-        border-radius: var(--radius);
-        border-top: 1px solid var(--border);
-        border-left: 3px solid var(--accent);
-    }
-}
 
 .goal-note { flex: 1 1 100%; order: 3; }
 

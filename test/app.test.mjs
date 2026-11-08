@@ -140,7 +140,8 @@ test('Mode switching moves between Selection, Practice and Recap', async () => {
         await clickPractice(app.page);
         assert.equal(await app.page.evaluate(() => document.querySelector('.practice_layout').style.display), 'initial');
         assert.equal(await app.page.evaluate(() => document.querySelector('.selection_layout').style.display), 'none');
-        assert.match(await app.page.evaluate(() => document.getElementById('selInfo').textContent), /practice mode/);
+        assert.match(await app.page.evaluate(() => document.getElementById('selInfo').textContent), /^practice mode:/,
+            'the mode pill still carries the leading "|" of the old two-column layout');
 
         // Practice and Recap are entered from the case list, so leave Practice first
         await app.page.click('#selectBtn');
@@ -168,6 +169,21 @@ test('Practice Mode renders a legal scramble and enables the timer', async () =>
         assert.ok(await app.page.evaluate(() => window.allowStartingTimer));
         assert.match(await app.page.evaluate(() => document.getElementById('selInfo').textContent), /practice mode/);
         assert.equal(app.failedRequests.length, 0, `failed requests: ${app.failedRequests.join('; ')}`);
+    } finally { await app.close(); }
+});
+
+test('the scramble box shows the moves under its own title, without repeating it', async () => {
+    const app = await openServedApp();
+    try {
+        await clickPractice(app.page);
+        const shown = await app.page.evaluate(() => {
+            const el = document.getElementById('scramble');
+            return { text: el.textContent.trim(), title: getComputedStyle(el, '::before').content };
+        });
+        assert.ok(!/^\s*scramble:/i.test(shown.text), `the scramble repeats its own title: "${shown.text}"`);
+        assert.match(shown.text, /^(R|L|U|D|F|B)(2|3)?(?=['\s])/,
+            `the scramble does not open with a move: "${shown.text}"`);
+        assert.match(shown.title, /Scramble/, 'the scramble box has no title of its own');
     } finally { await app.close(); }
 });
 

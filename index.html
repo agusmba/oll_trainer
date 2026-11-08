@@ -7,9 +7,9 @@
 <meta name="theme-color" content="#f4f6f8"/>
 <meta name="description" content="Practice OLL cases against a goal time: pick cases, get scrambles, time your solves."/>
 <title>OLL trainer</title>
-<link rel="stylesheet" type="text/css" href="styles/main.css?v3">
-<link rel="stylesheet" type="text/css" href="styles/selection.css?v3">
-<link rel="stylesheet" type="text/css" href="styles/timer.css?v3">
+<link rel="stylesheet" type="text/css" href="styles/main.css?v4">
+<link rel="stylesheet" type="text/css" href="styles/selection.css?v4">
+<link rel="stylesheet" type="text/css" href="styles/timer.css?v4">
 </head>
 <body class="niceBody" id="bodyid">
 
@@ -47,7 +47,7 @@
                    title="Goal in ms to beat in each alg solve. If your time is at or under the goal, the probability of getting the same alg again decreases. If it is slower, the probability increases. Leave this at 0 (default) to keep every selected alg with the same probability."/>
             <button type="button" class="btn btn-ghost" id="resetWeightsLink" onclick='applyResetWeights();'
                     title="Set every selected case back to the same probability. Keeps your selection and your recorded times.">Reset weights</button>
-            <span class="goal-note">At or under the Goal, a Case gets drawn less often; slower, more often. Keep 0 to draw every Case equally.</span>
+            <span class="goal-note">Beaten: drawn less often. Slower: more. 0: all equal.</span>
         </div>
 
         <section id="stats">
@@ -55,6 +55,7 @@
                 <span id='infoHeader'></span>times
                 <a role="button" tabindex="0" onclick="confirmClear();">clear</a>
             </div>
+            <div id="caseSummary" hidden></div>
             <div id="times"></div>
         </section>
 

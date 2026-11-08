@@ -25,8 +25,12 @@ The trio of Selection + Goal + Weight. Changing any member resets the Weight of 
 _Avoid_: session (overloaded — the times history is a separate thing)
 
 **Case card**:
-The dialog that shows one Case while solving: its picture, name, the alg and the setup the scramble came from. Opened from a Case name in the times history. Lives in the markup as `hintWindow` / `box`, which is the picture's window, not the Case itself.
+The dialog that shows one Case while solving: its picture, name, the alg and the setup the scramble came from. Opened from a Case name in the times history or from a tile of the Selection summary. Lives in the markup as `hintWindow` / `box`, which is the picture's window, not the Case itself.
 _Avoid_: hint, peek, popup
+
+**Selection summary**:
+The band of tiles above the times history on the solve screen: one tile per Case in the Selection, filled by Weight — red drawn more often, green less — and holding that Case's mean solve. A Case with no times still gets a tile, ringed and reading "-", because the fill is the draw, not the result. Tiles open the Case card. Lives in the markup as `caseSummary`.
+_Avoid_: heat map, chart, leaderboard
 
 **Settings sheet**:
 The modal holding Theme, Colours, sizes and the timing notes. A sheet because it is dismissed, not submitted: Esc and Done both close it, and nothing else takes keys while it is open.

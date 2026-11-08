@@ -18,11 +18,15 @@ function showScramble()
         document.getElementById("selInfo").innerHTML = "";
     }
     else {
-        s = "scramble: " + generateScramble();
+        s = generateScramble();
         window.allowStartingTimer = true;
     }
 
     document.getElementById("scramble").innerHTML = s;
+    // The Selection tiles are part of redrawing the solve screen: the Selection can change
+    // here (a Case unselected from the last scramble), and the Weights come from the solve
+    // that was just recorded.
+    displayCaseSummary();
 }
 
 function randomElement(arr)
@@ -47,9 +51,9 @@ function confirmUnsel(i) {
 function displayPracticeInfo() {
     var s = "";
     if (window.mode == "recap")
-        s += " | recap mode: <b>" + window.recapBacklog.length + "</b> cases left";
+        s += "recap mode: <b>" + window.recapBacklog.length + "</b> cases left";
     else
-        s += " | practice mode: <b>" + window.selCases.length + "</b> cases selected";
+        s += "practice mode: <b>" + window.selCases.length + "</b> cases selected";
 
     document.getElementById("selInfo").innerHTML = s;
 }
@@ -517,6 +521,74 @@ function makeHtmlDisplayableTime(r)
             + r["index"] + ")' >" + r["time"] + "</span>";
 }
 
+/// \returns the hue painting a Case tile. Weight runs 1/8..8 and is mapped over log2,
+/// so a Case drawn rarely is green, one drawn often is red, and an even draw is amber.
+/// \param weight of the Case, or null when it is not in the Selection
+function weightHue(weight)
+{
+    if (weight == null)
+        return 60;
+    var t = (Math.log2(weight) + 3) / 6;
+    if (t < 0)
+        t = 0;
+    if (t > 1)
+        t = 1;
+    return Math.round(120 * (1 - t));
+}
+
+/// Fills #caseSummary with one tile per Case in the Selection: its mean solve time, filled
+/// by Weight. Every selected Case gets a tile, so one with no times yet still reads as part
+/// of the draw. Tiles open the Case card, the same as a Case name in the times history.
+function displayCaseSummary()
+{
+    var el = document.getElementById("caseSummary");
+    if (!el)
+        return;
+
+    var cases = window.selCases.slice();
+    if (cases.length == 0)
+    {
+        el.hidden = true;
+        el.innerHTML = "";
+        return;
+    }
+
+    // mean ms per Case, from the same history the times list reads
+    var solved = {}; // { 12: { sum, n }, ... }
+    for (var i = 0; i < window.timesArray.length; i++)
+    {
+        var currentOll = window.timesArray[i]["case"];
+        if (solved[currentOll] == null)
+            solved[currentOll] = { sum: 0, n: 0 };
+        solved[currentOll].sum += window.timesArray[i]["ms"];
+        solved[currentOll].n += 1;
+    }
+
+    // the order the case picker groups them in, not the order the solves happened to run
+    cases.sort(function (a, b) {
+        return algsOrder.indexOf(a) - algsOrder.indexOf(b);
+    });
+
+    var s = "<div class='summary-head'><span class='summary-title'>Selection</span>" +
+        "<span class='summary-legend'>colour: Weight, red drawn more, green less</span></div>" +
+        "<div class='case-tiles'>";
+    for (var j = 0; j < cases.length; j++)
+    {
+        var oll = cases[j];
+        var meanText = solved[oll] ? msToHumanReadable(solved[oll].sum / solved[oll].n) : "-";
+        var title = escapeHtml(algsInfo[oll]["name"]) + (solved[oll] ? " - mean " + meanText : " - no times yet");
+        s += "<button type='button' class='case-tile" + (solved[oll] ? "" : " case-tileEmpty") + "'" +
+            " style='--case-hue:" + weightHue(weightOfCase(oll)) + "'" +
+            " onclick='displayBox(event," + oll + ")' title='" + title + "'" +
+            " aria-label='" + oll + " " + escapeHtml(algsInfo[oll]["name"]) + "'>" +
+            "<span class='tile-case'>" + oll + "</span>" +
+            "<span class='tile-mean'>" + meanText + "</span></button>";
+    }
+
+    el.innerHTML = s + "</div>";
+    el.hidden = false;
+}
+
 /// fills resultInfo container with info about given result instance
 /// \param r result instsnce (see makeResultInstance)
 /// set \param r to null if you want to clear result info
@@ -528,6 +600,7 @@ function displayStats()
     var len = window.timesArray.length;
 
     var el = document.getElementById("times");
+    displayCaseSummary();
     if (len == 0)
     {
         el.innerHTML = "";
