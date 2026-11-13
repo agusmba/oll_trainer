@@ -54,3 +54,11 @@ The Mode that replays every selected Case exactly once, in random order, without
 **Recap backlog**:
 The cases Recap has not yet replayed. Its emptiness ends Recap; it is not a mode signal.
 _Avoid_: recapArray as a flag
+
+**Installed app**:
+The hosted site added to a device by the browser: it launches without browser chrome, keeps following trunk, and holds that device's Selection and times — shared with the site opened in the browser on the same device, and separate on every other one.
+_Avoid_: PWA, the app (the site is the app either way), home-screen shortcut, offline mode
+
+**Offline copy**:
+A downloaded snapshot of the app, run from a machine rather than served: it stays frozen at whatever it was downloaded from, and copies opened in one browser behave as a single app holding one Selection and set of times.
+_Avoid_: offline version, local version, the zip, "works offline"
