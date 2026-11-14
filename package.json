@@ -8,6 +8,7 @@
     "test:responsive": "node --test test/responsive.test.mjs",
     "test:live": "OLL_LIVE_URL=https://agusmba.github.io/oll_trainer/ node --test test/live.test.mjs",
     "browser:install": "playwright install chromium-headless-shell",
+    "icons": "node dev/make-icons.mjs",
     "bump-version": "node dev/bump-version.mjs",
     "bump-version:check": "node dev/bump-version.mjs --check",
     "shots": "node dev/screenshots.mjs",

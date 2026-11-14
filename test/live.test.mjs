@@ -9,9 +9,10 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-    openApp, selectedCases, lastCase, caseCellIds, brokenImages,
+    openApp, selectedCases, lastCase, caseCellIds, brokenImages, waitForWorker,
     clickCase, clickPractice, sidebarHref, closeBrowser,
 } from './harness.mjs';
+import { pngDimensions, sizesCover } from '../dev/lint.mjs';
 
 after(async () => { await closeBrowser(); });
 
@@ -94,5 +95,49 @@ test('the published page credits Roman Strakhov and links the upstream repo', li
         assert.match(sidebar, /Roman Strakhov/, `the published page does not credit the original author: ${sidebar}`);
         assert.equal(await sidebarHref(app.page, 'Roman Strakhov'), UPSTREAM_REPO,
             'the credit on the published page must reach the original tool');
+    } finally { await app.close(); }
+});
+
+test('the published page links a manifest that offers installable icons', live, async () => {
+    const app = await openLiveApp();
+    try {
+        const href = await app.page.evaluate(() => document.querySelector('link[rel="manifest"]')?.href ?? null);
+        assert.ok(href, 'the published page links no manifest, so a phone has nothing to install');
+
+        // read through the browser's API but not through a worker: what matters here is
+        // that the deployment itself answers.
+        const response = await app.page.request.get(href);
+        assert.equal(response.status(), 200, `${href} answers ${response.status()}`);
+        const manifest = JSON.parse(await response.text());
+
+        assert.ok(manifest.start_url, `${href} names no start_url`);
+        for (const size of ['192x192', '512x512']) {
+            assert.ok(manifest.icons?.some(icon => sizesCover(icon.sizes, size)),
+                `${href} names no ${size} icon, which is what a launcher asks for`);
+        }
+        // The launcher art has to be deployed *and* be the art: a truncated upload answers
+        // 200 and is caught here by the pixels it no longer carries.
+        for (const icon of manifest.icons ?? []) {
+            const url = new URL(icon.src, href).href;
+            const answer = await app.page.request.get(url);
+            assert.equal(answer.status(), 200, `${url} answers ${answer.status()}: launcher art not deployed`);
+            const pixels = pngDimensions(await answer.body());
+            assert.ok(sizesCover(icon.sizes, pixels),
+                `${url} carries ${pixels ?? 'no PNG at all'}, not the ${icon.sizes} the manifest declares`);
+        }
+    } finally { await app.close(); }
+});
+
+test('the published page takes control of the published origin', live, async () => {
+    const app = await openLiveApp();
+    try {
+        const worker = await waitForWorker(app.page);
+        assert.ok(worker.active, 'no worker became active on the published origin '
+            + `(installed-waiting ${worker.installed}, waiting ${worker.waiting})`);
+        assert.match(worker.active, /\/service-worker\.js$/, `the active worker is ${worker.active}`);
+        // The scope has to be the directory the app lives in, or a start from the launcher
+        // would be a start outside the worker's reach.
+        assert.equal(worker.scope, new URL(app.page.url()).href,
+            `the worker controls ${worker.scope}, not ${app.page.url()}`);
     } finally { await app.close(); }
 });

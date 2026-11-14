@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"
+     role="img" aria-label="OLL Trainer: a cube's top face with the last-layer cross highlighted">
+  <!-- Launcher tile: the last-layer cross on the accent ground. The hexes are the accent
+     palette's own values, copied from styles/main.css rather than read from it — this
+     file is rendered on its own, by dev/make-icons.mjs and by a launcher, where no
+     stylesheet reaches it. No text: a font is not guaranteed on the machine that
+     renders this. -->
+  <rect x="0" y="0" width="512" height="512" rx="96" fill="#10735a"/>
+  <g fill="#ffffff">
+    <rect x="208" y="80" width="96" height="96" rx="12"/>
+    <rect x="80" y="208" width="96" height="96" rx="12"/>
+    <rect x="208" y="208" width="96" height="96" rx="12"/>
+    <rect x="336" y="208" width="96" height="96" rx="12"/>
+    <rect x="208" y="336" width="96" height="96" rx="12"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-width="12">
+    <rect x="80" y="80" width="96" height="96" rx="12"/>
+    <rect x="336" y="80" width="96" height="96" rx="12"/>
+    <rect x="80" y="336" width="96" height="96" rx="12"/>
+    <rect x="336" y="336" width="96" height="96" rx="12"/>
+  </g>
+</svg>

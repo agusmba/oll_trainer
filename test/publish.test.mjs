@@ -28,13 +28,15 @@ test('the sidebar credits Roman Strakhov as the original author', async () => {
     } finally { await app.close(); }
 });
 
-test('the sidebar repo and offline-download links point at the fork', async () => {
+// The notes list used to offer a zip as the way to practise with no connection. It is
+// gone: the Installed app follows trunk and keeps its own Selection, while an Offline copy
+// stays frozen where it was downloaded. What this test requires is the repo link; the
+// absence of the download is not worth a standing assertion.
+test('the sidebar repo link points at the fork', async () => {
     const app = await openServedApp();
     try {
         assert.equal(await sidebarHref(app.page, 'click'), FORK_REPO,
             'the GitHub repo link must point at the fork');
-        assert.equal(await sidebarHref(app.page, 'zip'), `${FORK_REPO}/archive/main.zip`,
-            'the offline download must come from the fork');
     } finally { await app.close(); }
 });
 

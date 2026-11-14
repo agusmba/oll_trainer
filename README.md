@@ -16,7 +16,21 @@ This fork is hosted at **[agusmba.github.io/oll_trainer/](https://agusmba.github
 Questions, suggestions and bug reports: open an issue on
 [the fork's issue tracker](https://github.com/agusmba/oll_trainer/issues).
 
-Download an offline copy: [zip](https://github.com/agusmba/oll_trainer/archive/main.zip).
+Practising without a connection
+-------------------------------
+
+Two different things get called "offline", so they get named separately.
+
+**The Installed app** is how to practise with no connection: open the hosted site in Chrome
+on Android and add it to the home screen. It gets a launcher icon, launches with no browser
+chrome, and holds that device's Selection and times. It keeps following `main`, so whatever
+was published arrives at the next cold start — no reinstall.
+
+**The Offline copy** is a snapshot to hold on to:
+[zip](https://github.com/agusmba/oll_trainer/archive/main.zip), unzipped, opened at
+`index.html`. It stays frozen at whatever it was downloaded from and never updates, and
+copies opened this way in one browser behave as a single app holding one Selection and set
+of times.
 
 Dev-only tooling
 ----------------
@@ -25,6 +39,8 @@ The app is plain files with no build step; the tests and the cache-busting helpe
 part of it.
 
 - `npm run browser:install` — fetch the headless chromium the suite needs (once)
+- `npm run icons` — re-render the launcher icons in `icons/` from their SVG sources; the
+  PNGs are committed artifacts, and `icons/*.svg` is where the art lives
 - `npm test` — headless browser tests plus the cache-bust tests
 - `npm run test:live` — the same harness against the hosted site; opt-in, so `npm test` skips those tests when no deployment is under test
 - `npm run bump-version` / `npm run bump-version:check` — raise the `?vN` asset versions in

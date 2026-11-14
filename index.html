@@ -7,6 +7,10 @@
 <meta name="theme-color" content="#f4f6f8"/>
 <meta name="description" content="Practice OLL cases against a goal time: pick cases, get scrambles, time your solves."/>
 <title>OLL trainer</title>
+<!-- Installed app: what a phone reads to offer "Add to home screen". No ?vN here —
+     bump-version only versions scripts/ and styles/, and the manifest's own contents
+     change with the palettes, which offline.test.mjs compares against. -->
+<link rel="manifest" href="manifest.json"/>
 <link rel="stylesheet" type="text/css" href="styles/main.css?v5">
 <link rel="stylesheet" type="text/css" href="styles/selection.css?v5">
 <link rel="stylesheet" type="text/css" href="styles/timer.css?v5">
@@ -125,7 +129,7 @@
                     <li>Practice draws the Selection by Weight; Recap replays every selected Case once</li>
                     <li>Original tool by <a target="_blank" rel="noopener" href="https://github.com/Roman-/oll_trainer">Roman Strakhov</a> &mdash; this fork adapts it</li>
                     <li>Any questions/suggestions/bugs reports - please open an issue on <a target="_blank" rel="noopener" href="https://github.com/agusmba/oll_trainer/issues">the fork's issues</a></li>
-                    <li>GitHub repo: <a href='https://github.com/agusmba/oll_trainer'>click</a>, download offline version: <a href='https://github.com/agusmba/oll_trainer/archive/main.zip'>zip</a></li>
+                    <li>GitHub repo: <a href='https://github.com/agusmba/oll_trainer'>click</a></li>
                 </ul>
             </aside>
         </div>
@@ -163,6 +167,14 @@
 <script src="scripts/practice.js?v10"></script>
 <script>
 changeMode("selection");
+// The Installed app's worker, registered only where there is an origin to serve it: a
+// filesystem path is the Offline copy, which needs no worker and must not fill a console
+// with a failure the reader has no way to fix. A registration that fails outright —
+// private mode, storage pressure — costs the visitor the offline start and nothing else,
+// which is why there is no catch handler to write to the console.
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+}
 </script>
 </body>
 </html>

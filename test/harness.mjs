@@ -36,15 +36,25 @@ export async function closeBrowser() {
 
 /// Open the app in a browser context. \param contextOptions are Playwright's context
 /// options: pass a phone viewport with hasTouch / isMobile to prove the phone layout.
-/// \returns { page, browser, context, errors, failedRequests, close }
-export async function openApp({ url = APP_URL, ...contextOptions } = {}) {
+/// \param init runs in the page before any of the app's own scripts, and is the only way
+/// to ask what the app touches — an API it must not call — since after goto() it has run.
+/// \returns { page, browser, context, errors, failedRequests, log, close }
+export async function openApp({ url = APP_URL, init = null, ...contextOptions } = {}) {
     const browser = await getBrowser();
     const context = await browser.newContext(contextOptions);
     const page = await context.newPage();
 
+    if (init)
+        await context.addInitScript(init);
+
     const errors = [];
     page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
     page.on('console', m => { if (m.type() === 'error') errors.push(`console.error: ${m.text()}`); });
+
+    // Everything the app says, errors included: some questions are "does it stay quiet",
+    // which an errors-only list cannot answer.
+    const log = [];
+    page.on('console', m => log.push(`${m.type()}: ${m.text()}`));
 
     const failedRequests = [];
     page.on('requestfailed', r => failedRequests.push(`${r.url()} -> ${r.failure?.errorText}`));
@@ -58,6 +68,7 @@ export async function openApp({ url = APP_URL, ...contextOptions } = {}) {
         context,
         errors,
         failedRequests,
+        log,
         close: () => context.close(),
     };
 }
@@ -72,6 +83,27 @@ export async function openServedApp({ prefix = '/oll/', ...contextOptions } = {}
         server,
         close: async () => { await app.close(); await server.close(); },
     };
+}
+
+/// Waits for the worker that controls this page's directory to activate, and reports what
+/// it found rather than hanging: a precache that fails leaves a worker installed and never
+/// active, and `navigator.serviceWorker.ready` would sit there until the test timed out for
+/// a reason nobody can read. \returns { scope, active, installed, waiting }
+export async function waitForWorker(page, budget = 20000) {
+    return page.evaluate(async ms => {
+        const deadline = Date.now() + ms;
+        for (;;) {
+            const registration = await navigator.serviceWorker.getRegistration();
+            const found = {
+                scope: registration?.scope ?? null,
+                active: registration?.active?.scriptURL ?? null,
+                installed: !!registration?.installed,
+                waiting: !!registration?.waiting,
+            };
+            if (found.active || Date.now() > deadline) return found;
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
+    }, budget);
 }
 
 /// Fills the times history without solving anything, so a layout test can look at

@@ -1,0 +1,20 @@
+{
+  "name": "OLL Trainer",
+  "short_name": "OLL Trainer",
+  "description": "Practice OLL cases against a goal time: pick cases, get scrambles, time your solves.",
+  "lang": "en",
+  "start_url": "index.html",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#f4f6f8",
+  "color_scheme_dark": {
+    "background_color": "#14171c",
+    "theme_color": "#14171c"
+  },
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

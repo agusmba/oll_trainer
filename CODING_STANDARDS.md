@@ -11,6 +11,12 @@ when reviewing a diff; it holds the calls no check can make.
 - JavaScript lives in `scripts/`, stylesheets in `styles/`, one SVG per Case in
   `pic/NN.svg`. A new asset must be referenced from `index.html` and gets its directory's
   `?vN` from `npm run bump-version`.
+- The install artefacts are the exception to that rule: `manifest.json`,
+  `service-worker.js` and `icons/` sit at the site root, where a worker's scope reaches,
+  and take no `?vN` — the worker's precache list carries the versions instead. Adding an
+  asset therefore means joining it to that list too, or the Installed app loses it the
+  moment the network goes; `npm run check` reads the list against what `index.html`
+  loads, and the icon files against the sizes the manifest declares.
 - `index.html` loads scripts in dependency order: `ui.js` after `timer.js`, because
   timer.js's key handlers read `overlayOpen()` and `trapFocus()` from ui.js. Reordering
   the tags breaks timing silently, with no error at load.

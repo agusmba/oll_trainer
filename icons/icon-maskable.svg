@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"
+     role="img" aria-label="OLL Trainer: a cube's top face with the last-layer cross highlighted">
+  <!-- Maskable variant: Android crops this to the launcher's shape, so the ground has to
+     reach every edge. The art stays inside the central 80% (51.2..460.8 here), where no
+     crop can cut it: the marks span 74..438. -->
+  <rect x="0" y="0" width="512" height="512" fill="#10735a"/>
+  <g fill="#ffffff">
+    <rect x="208" y="80" width="96" height="96" rx="12"/>
+    <rect x="80" y="208" width="96" height="96" rx="12"/>
+    <rect x="208" y="208" width="96" height="96" rx="12"/>
+    <rect x="336" y="208" width="96" height="96" rx="12"/>
+    <rect x="208" y="336" width="96" height="96" rx="12"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-width="12">
+    <rect x="80" y="80" width="96" height="96" rx="12"/>
+    <rect x="336" y="80" width="96" height="96" rx="12"/>
+    <rect x="80" y="336" width="96" height="96" rx="12"/>
+    <rect x="336" y="336" width="96" height="96" rx="12"/>
+  </g>
+</svg>
