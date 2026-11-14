@@ -51,6 +51,8 @@ when reviewing a diff; it holds the calls no check can make.
 
 ## Tests
 
-- Tests are dev-only and go through `test/harness.mjs`. Assert on what a visitor sees —
-  measured boxes, served responses, keyboard and pointer gestures — not on internals.
+- Tests are dev-only. Anything that needs the app goes through `test/harness.mjs`; assert on
+  what a visitor sees — measured boxes, served responses, keyboard and pointer gestures —
+  not on internals. Pure logic and dev tools run headless instead (`node:vm`, throwaway
+  trees), and their wiring into the app stays proven through the harness.
 - A layout test names the screen it means: viewport size, and touch or mouse.

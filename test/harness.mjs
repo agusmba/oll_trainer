@@ -60,7 +60,7 @@ export async function openApp({ url = APP_URL, init = null, ...contextOptions } 
     page.on('requestfailed', r => failedRequests.push(`${r.url()} -> ${r.failure?.errorText}`));
 
     await page.goto(url);
-    await page.waitForTimeout(100); // let the inline changeMode("selection") render settle
+    await page.evaluate(() => document.fonts.ready.then(() => new Promise(requestAnimationFrame)));
 
     return {
         page,

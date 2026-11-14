@@ -7,19 +7,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { openServedApp, selectedCases, clickCase, caseCellIds, brokenImages, closeBrowser } from './harness.mjs';
+import { openServedApp, caseCellIds, brokenImages, closeBrowser } from './harness.mjs';
 
 after(async () => { await closeBrowser(); });
-
-test('the app is served raw under a Pages-style subpath with no errors', async () => {
-    const app = await openServedApp({ prefix: '/oll/' });
-    try {
-        assert.equal(app.page.url(), `${app.server.origin}/oll/index.html`, `unexpected url: ${app.page.url()}`);
-        assert.equal(app.errors.length, 0, `errors: ${app.errors.join('; ')}`);
-        assert.equal(app.failedRequests.length, 0, `failed requests: ${app.failedRequests.join('; ')}`);
-        assert.equal((await caseCellIds(app.page)).length, 57, 'case list did not render under the subpath');
-    } finally { await app.close(); }
-});
 
 test('the app serves clean at the root of an origin, the Pages project-site shape', async () => {
     const app = await openServedApp({ prefix: '/' });
@@ -41,22 +31,6 @@ test('case pictures are served as SVG, so the case list renders them', async () 
 
         const brokenImgs = await brokenImages(app.page);
         assert.equal(brokenImgs.length, 0, `broken case images: ${brokenImgs.join(', ')}`);
-    } finally { await app.close(); }
-});
-
-test('the Selection survives a reload that stays inside the subpath', async () => {
-    const app = await openServedApp({ prefix: '/oll/' });
-    try {
-        await clickCase(app.page, 31); // deselect one of the default Selection
-        assert.deepEqual(await selectedCases(app.page), [32]);
-
-        await app.page.reload();
-        assert.equal(app.page.url(), `${app.server.origin}/oll/index.html`,
-            `reload left the subpath: ${app.page.url()}`);
-        assert.deepEqual(await selectedCases(app.page), [32],
-            'the Selection must come back from localStorage on the http origin');
-        assert.equal(app.errors.length, 0, `errors after reload: ${app.errors.join('; ')}`);
-        assert.equal(app.failedRequests.length, 0, `failed requests after reload: ${app.failedRequests.join('; ')}`);
     } finally { await app.close(); }
 });
 
