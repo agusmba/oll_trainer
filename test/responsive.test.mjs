@@ -397,6 +397,40 @@ test('the Goal strip reads as one line under the controls', async () => {
     } finally { await app.close(); }
 });
 
+test('the Goal strip keeps one line of controls when the text is scaled up', async () => {
+    // Font metrics differ between machines: at the same viewport this strip measured
+    // one line of controls on one machine and three on another, because the button
+    // and the field together needed 10px more than the screen gave them. The width of
+    // the system font is not ours to choose, so grow the text until a wrapping row
+    // would break and assert the structure rather than the pixels.
+    const app = await openPhone();
+    try {
+        await clickPractice(app.page);
+        await app.page.evaluate(() => { document.documentElement.style.fontSize = '125%'; });
+
+        const bands = await app.page.evaluate(() => {
+            const box = s => document.querySelector(s).getBoundingClientRect();
+            const controls = ['label[for="goal_in"]', '#goal_in', '#resetWeightsLink'].map(box);
+            const note = box('.goal-note');
+            return {
+                centres: controls.map(r => (r.top + r.bottom) / 2),
+                controlsBottom: Math.max(...controls.map(r => r.bottom)),
+                noteTop: note.top,
+                fieldHeight: controls[1].height,
+            };
+        });
+
+        const spread = Math.max(...bands.centres) - Math.min(...bands.centres);
+        assert.ok(spread <= 1,
+            `the controls do not share one line at scaled text: centres ${bands.centres.map(c => c.toFixed(1)).join(', ')}`);
+        assert.ok(bands.noteTop >= bands.controlsBottom,
+            'the Goal note is crowded onto the controls line instead of having its own');
+        assert.ok(bands.fieldHeight >= 44, `the Goal field is ${bands.fieldHeight}px tall, under the touch minimum`);
+        assert.ok(!(await scrollsSideways(app.page)),
+            'the scaled Goal strip pushes the screen sideways');
+    } finally { await app.close(); }
+});
+
 test('the solve screen keeps its order on a phone: where you are, the scramble, the clock, the Goal, the times', async () => {
     const app = await openPhone();
     try {

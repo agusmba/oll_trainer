@@ -152,9 +152,14 @@
 
 .goal-row {
     grid-area: goal;
-    display: flex;
+    /* A phone gets the strip as two lines by construction: the controls share the
+       first, the note has the second to itself. As a wrapping flex row the controls
+       were one line only while the system font stayed narrow, and the width of that
+       font is not ours to choose - on a wider face the button dropped below and the
+       strip took a third of the screen. The field is the part that gives way. */
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
     align-items: center;
-    flex-wrap: wrap;
     gap: 6px 10px;
     padding: 7px 10px;
     border: 1px solid var(--border);
@@ -164,12 +169,25 @@
 
 .goal-row label { font-size: .9rem; font-weight: 600; }
 
+/* The field is the part that gives way. Held to its `6.5em` it would refuse to shrink
+   and push the button past the strip instead. */
+#goal_in { width: auto; max-width: 6.5em; }
+
 .goal-note {
-    flex: 1 1 200px;
+    grid-column: 1 / -1;
     min-width: 0;
     color: var(--muted);
     font-size: .75rem;
     line-height: 1.3;
+}
+
+/* A wide screen puts the strip back in a wrapping row: given a full-width line the
+   field would stretch across it, and there is height to spare there if the controls
+   do wrap. The note keeps the line under them, as it always has. */
+@media (min-width: 700px) {
+    .goal-row { display: flex; flex-wrap: wrap; }
+
+    .goal-note { flex: 1 1 100%; order: 3; }
 }
 
 /* A mouse pointer does not need a 44px target, so on a desktop the Goal strip
@@ -491,8 +509,6 @@ span.ollNameStats:hover { color: var(--accent); }
 #boxsetup { font-style: italic; color: var(--muted); font-size: .85rem; }
 
 .sheet-close { margin-left: auto; }
-
-.goal-note { flex: 1 1 100%; order: 3; }
 
 /* Pointer-capable, roomy screens: the clock and the times sit side by side, and
    the Goal takes its place beside the clock instead of under it.
