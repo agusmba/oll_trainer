@@ -483,27 +483,150 @@ function confirmClear()
     }
 }
 
+/* Case card: the two Reference algs are editable in place. The Preferred one shows
+   first, and if it opens with a y-rotation the case picture is turned to match —
+   the rotation is still printed in the alg, but faint, as already applied. */
+
+// Directions checked against a rendered pic/31.svg: the picture is the overhead view
+// (its side stickers point outward), so a y — the cube turning as U does seen from
+// above — turns it 90 degrees clockwise on screen, which is exactly CSS rotate(90deg).
+var yRotationDegrees = { "y": 90, "y2": 180, "y'": 270, "y2'": 180 }; // y2' is the same turn as y2
+
+/// \returns a match when the alg's first move is a y-rotation — y, y', y2 or y2',
+/// surrounded by whitespace, dots, commas or parentheses — its whole leading stretch,
+/// or null. Leading x or z rotations never match.
+function leadingYRotation(alg) {
+    return /^[\s.,()]*(y2'|y2|y'|y)[\s.,()]*/.exec(alg);
+}
+
+/// \returns the degrees to turn the picture, or null when the alg has no leading y-rotation
+function pictureRotationDegrees(alg) {
+    var m = leadingYRotation(alg);
+    return m == null ? null : yRotationDegrees[m[1]];
+}
+
+/// \returns the alg as HTML; when its rotation has been applied to the picture, the
+/// leading stretch carries it rendered faint.
+function algHtml(raw, pictureRotated) {
+    if (pictureRotated) {
+        var m = leadingYRotation(raw);
+        if (m != null)
+            return "<span class='alg-faint'>" + escapeHtml(m[0]) + "</span>"
+                + escapeHtml(raw.slice(m[0].length));
+    }
+    return escapeHtml(raw);
+}
+
+/// Prints the card's two Reference alg slots — exactly two, ever — with the Preferred
+/// first and marked, each editable in place, plus Reset once the Case differs from its
+/// built-ins. An empty slot reads as an invitation to add an alg.
+function renderCaseAlgs(i) {
+    var view = caseAlgs(i);
+    var order = view.pref == "a2" ? ["a2", "a"] : ["a", "a2"];
+    var s = "";
+    for (var k = 0; k < order.length; k++) {
+        var slot = order[k];
+        var preferred = slot == view.pref;
+        var text = view[slot];
+        s += "<div class='alg-slot' id='alg" + i + slot + "'>"
+            + "<a role='button' tabindex='0' class='alg-text' title='edit this Reference alg'"
+            + " onclick='editAlg(event," + i + "," + JSON.stringify(slot) + ")'>"
+            + (text == "" ? "<i class='alg-empty'>(no alg &middot; tap to add)</i>" : algHtml(text, preferred))
+            + "</a>"
+            + (preferred
+                ? "<span class='alg-badge'>preferred</span>"
+                : "<a role='button' tabindex='0' class='alg-prefer' onclick='preferAlg(event,"
+                    + i + "," + JSON.stringify(slot) + ")'>prefer</a>")
+            + "</div>";
+    }
+    if (caseAlgEntry(i) != null)
+        s += "<a role='button' tabindex='0' class='alg-reset' onclick='resetAlgsShown(" + i + ")'>reset</a>";
+    document.getElementById("boxalg").innerHTML = s;
+
+    var degrees = pictureRotationDegrees(view[view.pref]);
+    document.getElementById("boxImg").style.transform =
+        degrees == null ? "" : "rotate(" + degrees + "deg)";
+}
+
+/// Swaps a slot's text for a one-line field so the Reference alg can be retyped in
+/// place: Enter or losing focus saves it as a Custom alg, Esc abandons the edit.
+function editAlg(event, i, slot) {
+    var holder = document.getElementById("alg" + i + slot);
+    if (holder == null)
+        return;
+    holder.innerHTML = "<input type='text' class='alg-edit' value='"
+        + escapeHtml(caseAlgs(i)[slot]) + "'>";
+    var input = holder.firstElementChild;
+    input.focus();
+    input.select();
+    var settled = false;
+    function commit() {
+        if (settled)
+            return;
+        settled = true;
+        setCustomAlg(i, slot, input.value.trim());
+        renderCaseAlgs(i);
+        refocusAlgText("#alg" + i + slot);
+    }
+    function abandon() {
+        if (settled)
+            return;
+        settled = true;
+        renderCaseAlgs(i);
+        refocusAlgText("#alg" + i + slot);
+    }
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", function (ev) {
+        if (ev.keyCode == 13)
+            commit();
+        else if (ev.keyCode == 27) {
+            ev.stopPropagation(); // Esc backs out of the edit, not out of the card
+            abandon();
+        }
+    });
+}
+
+/// Marks a slot Preferred: the card leads with it, and its leading y-rotation takes
+/// the picture with it.
+function preferAlg(event, i, slot) {
+    event.stopPropagation();
+    setPreferredAlg(i, slot);
+    renderCaseAlgs(i);
+    refocusAlgText("#alg" + i + slot);
+}
+
+/// The card's one Reset: restores both built-in Reference algs and the default
+/// preference in a single step, and disappears with the customization it undid.
+function resetAlgsShown(i) {
+    resetCaseAlgs(i);
+    renderCaseAlgs(i);
+    refocusAlgText("#boxalg .alg-slot:first-of-type");
+}
+
+// A re-render of the algs detaches whatever control was focused. A keyboard user left
+// on the body walks out of the dialog on the next Tab, which the focus trap — a
+// listener on the dialog itself — has no way to catch, so every path that re-renders
+// puts the focus back on a slot instead.
+function refocusAlgText(slotSelector) {
+    var text = document.querySelector(slotSelector + " .alg-text");
+    if (text != null)
+        text.focus();
+}
+
 function displayBox(event,i) {
     // the peek is a dialog: it shows on top of the solve, and the backdrop or Esc
     // dismisses it
     document.getElementById("hintWindowBack").style.display='block';
     document.getElementById("hintWindow").style.display='flex';
     document.getElementById("boxTitle").innerHTML = '#' + i + " " + algsInfo[i]["name"];
-    document.getElementById("boxalg").innerHTML = algsInfo[i]["a"];
-    if (algsInfo[i]["a2"] != "")
-        document.getElementById("boxalg").innerHTML += "<br><br>" + algsInfo[i]["a2"];
-    //document.getElementById("boxsetup").innerHTML = "Setup: " + window.ollMap[i][0];
     document.getElementById("boxsetup").innerHTML = "Setup: " + inverse_scramble(algsInfo[i]["a"]);
+    // The Setup line always derives from the built-in Reference alg; a Custom alg never moves it.
     document.getElementById("boxImg").src="pic/"+i+".svg";
     document.getElementById("boxImg").alt = "Case " + i + " " + algsInfo[i]["name"];
+    renderCaseAlgs(i);
     var close = document.getElementById("boxClose");
     if (close)
         close.focus();
-}
-
-function hideBox() {
-    document.getElementById("hintWindow").style.display='none';
-    document.getElementById("hintWindowBack").style.display='none';
 }
 
 function hideBox() {

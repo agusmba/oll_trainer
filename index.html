@@ -11,9 +11,9 @@
      bump-version only versions scripts/ and styles/, and the manifest's own contents
      change with the palettes, which offline.test.mjs compares against. -->
 <link rel="manifest" href="manifest.json"/>
-<link rel="stylesheet" type="text/css" href="styles/main.css?v5">
-<link rel="stylesheet" type="text/css" href="styles/selection.css?v5">
-<link rel="stylesheet" type="text/css" href="styles/timer.css?v5">
+<link rel="stylesheet" type="text/css" href="styles/main.css?v6">
+<link rel="stylesheet" type="text/css" href="styles/selection.css?v6">
+<link rel="stylesheet" type="text/css" href="styles/timer.css?v6">
 </head>
 <body class="niceBody" id="bodyid">
 
@@ -157,14 +157,14 @@
 
 <!-- Load order is load-bearing: scripts/ui.js defines overlayOpen() and trapFocus(),
     which scripts/timer.js reads to keep its keys from timing behind a dialog. -->
-<script src="scripts/algsinfo.js?v11"></script>
-<script src="scripts/algsmap.js?v11"></script>
-<script src="scripts/weights.js?v11"></script>
-<script src="scripts/saveload.js?v11"></script>
-<script src="scripts/selection.js?v11"></script>
-<script src="scripts/timer.js?v11"></script>
-<script src="scripts/ui.js?v11"></script>
-<script src="scripts/practice.js?v11"></script>
+<script src="scripts/algsinfo.js?v12"></script>
+<script src="scripts/algsmap.js?v12"></script>
+<script src="scripts/weights.js?v12"></script>
+<script src="scripts/saveload.js?v12"></script>
+<script src="scripts/selection.js?v12"></script>
+<script src="scripts/timer.js?v12"></script>
+<script src="scripts/ui.js?v12"></script>
+<script src="scripts/practice.js?v12"></script>
 <script>
 changeMode("selection");
 // The Installed app's worker, registered only where there is an origin to serve it: a
