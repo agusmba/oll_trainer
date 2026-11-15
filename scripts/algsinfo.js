@@ -46,8 +46,8 @@ var algsInfo = {
     },
     5: {
         "name": "Lefty Square",
-        "a": "(r' U2' R U R' U r)",
-        "a2": "",
+        "a": "y2 R' F2 r U r' F R",
+        "a2": "(r' U2' R U R' U r)",
     },
     6: {
         "name": "Righty Square",
@@ -201,8 +201,8 @@ var algsInfo = {
     },
     36: {
         "name": "Sea Mew",
-        "a": "(R' U' R U') (R' U R U) l U' R' U x",
-        "a2": "y2 (R U R' F') (R U R' U') (R' F R U') (R' F R F')",
+        "a": "y2 R' F' U' F2 U R U' R' F' R",
+        "a2": "y R U R2 F' U' F U R2 U2 R'",
     },
     37: {
         "name": "Mounted Fish",
