@@ -28,6 +28,23 @@ _Avoid_: session (overloaded — the times history is a separate thing)
 The dialog that shows one Case while solving: its picture, name, the alg and the setup the scramble came from. Opened from a Case name in the times history or from a tile of the Selection summary. Lives in the markup as `hintWindow` / `box`, which is the picture's window, not the Case itself.
 _Avoid_: hint, peek, popup
 
+**Reference alg**:
+The algorithm text a Case card shows for its Case; at most two per Case.
+The built-in ones ship with the app; a Custom one replaces a built-in until reset.
+_Avoid_: solution, formula
+
+**Custom alg**:
+A user-edited Reference alg, kept per Case across sessions. One Reset restores both
+of a Case's built-in Reference algs and its preferred choice together.
+_Avoid_: user alg, override
+
+**Preferred alg**:
+The Reference alg the user marks as primary for a Case. It governs how the Case's
+picture is shown: if it opens with a y-rotation (`y`, `y'`, `y2`, `y2'`), the picture
+is turned to match and that leading rotation is shown faint, indicating it has already
+been applied to the picture. Defaults to the first of the two.
+_Avoid_: favorite, default alg
+
 **Selection summary**:
 The band of tiles above the times history on the solve screen: one tile per Case in the Selection, filled by Weight — red drawn more often, green less — and holding that Case's mean solve. A Case with no times still gets a tile, ringed and reading "-", because the fill is the draw, not the result. Tiles open the Case card. Lives in the markup as `caseSummary`.
 _Avoid_: heat map, chart, leaderboard
