@@ -30,19 +30,22 @@ _Avoid_: hint, peek, popup
 
 **Reference alg**:
 The algorithm text a Case card shows for its Case; at most two per Case.
-The built-in ones ship with the app; a Custom one replaces a built-in until reset.
+The built-in ones ship with the app; a Custom one replaces a built-in until it is restored.
 _Avoid_: solution, formula
 
 **Custom alg**:
-A user-edited Reference alg, kept per Case across sessions. One Reset restores both
-of a Case's built-in Reference algs and its preferred choice together.
+A user-edited Reference alg, kept per Case across sessions. A mark in the slot's edit
+field clears it back to the built-in in one tap; text that says the same as the
+built-in stops being a Custom alg by itself.
 _Avoid_: user alg, override
 
 **Preferred alg**:
-The Reference alg the user marks as primary for a Case. It governs how the Case's
+The Reference alg a Case marks as primary: its row carries the filled star and the
+accent rule, and the other slot's outline star is the only way to move the mark, so a
+Case always has one — the first of the two by default. It governs how the Case's
 picture is shown: if it opens with a y-rotation (`y`, `y'`, `y2`, `y2'`), the picture
-is turned to match and that leading rotation is shown faint, indicating it has already
-been applied to the picture. Defaults to the first of the two.
+turns to match and that leading rotation is shown faint, indicating it has already
+been applied to the picture.
 _Avoid_: favorite, default alg
 
 **Selection summary**:
