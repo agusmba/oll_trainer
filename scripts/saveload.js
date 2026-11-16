@@ -96,13 +96,6 @@ function setPreferredAlg(i, pref) {
     saveCaseAlgEntry(store, i, entry);
 }
 
-/// One step back to the shipped data: both built-in Reference algs and the default
-/// preference, which is slot one.
-function resetCaseAlgs(i) {
-    var store = loadCustomAlgs();
-    delete store[i];
-    saveCustomAlgs(store);
-}
 
 /// The Case as the card should show it: each slot the Custom alg where there is one
 /// and the built-in otherwise, pref the Preferred slot, defaulting to "a". This never

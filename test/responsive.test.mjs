@@ -245,6 +245,25 @@ test('the case peek opens as a sheet within the screen and closes on Esc', async
     } finally { await app.close(); }
 });
 
+test('a 320px-wide phone case card keeps its Reference algs inside the card', async () => {
+    const app = await openPhone();
+    try {
+        await clickPractice(app.page);
+        await app.page.evaluate(() => displayBox(null, window.lastCase));
+        // the alg column is pinned when the card opens, so it never rewraps while the
+        // reader works in it; a narrower screen has to re-pin rather than scroll sideways
+        await app.page.setViewportSize({ width: 320, height: 640 });
+        await app.page.waitForTimeout(100);
+        const sideways = await app.page.evaluate(() => {
+            const box = document.getElementById('box');
+            return box.scrollWidth - box.clientWidth;
+        });
+        assert.ok(sideways <= 0, `the case card scrolls sideways by ${sideways}px at 320px wide`);
+        assert.match(await app.page.textContent('#boxalg'), /[RLUDFB]/,
+            'the Reference alg must still be shown after the card re-pins');
+    } finally { await app.close(); }
+});
+
 test('the theme switch repaints the app and survives a reload', async () => {
     const app = await openPhone();
     try {

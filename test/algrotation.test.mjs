@@ -1,8 +1,9 @@
 // The Preferred alg governs the Case picture: when it opens with a y-rotation the
 // picture turns by that rotation — directions verified against a rendered pic/31.svg,
-// where y is 90 degrees clockwise on screen — and the rotation stays printed in the
-// alg text, faint. Nothing else turns the picture: leading x/z rotations and any
-// rotation in the non-Preferred alg leave it upright.
+// where y is 90 degrees clockwise on screen — and the rotation stays printed in the alg
+// text, faint. The other slot's star is what moves the mark, and the picture turns with
+// it. Nothing else turns it: leading x/z rotations and any rotation in the
+// non-Preferred alg leave it upright, and the turn respects reduced motion.
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -37,7 +38,13 @@ async function editSlot(page, k, alg) {
     await page.waitForSelector('#boxalg input.alg-edit', { state: 'detached' });
 }
 
-function pictureTransform(page) {
+// The turn is animated, so a reading taken right after a star tap lands mid-flight:
+// settle the picture first, then read what the browser ended up applying.
+async function pictureTransform(page) {
+    await page.evaluate(async () => {
+        const img = document.getElementById('boxImg');
+        await Promise.all(img.getAnimations().map(a => a.finished.catch(() => {})));
+    });
     return page.evaluate(() => getComputedStyle(document.getElementById('boxImg')).transform);
 }
 
@@ -96,8 +103,6 @@ test('a built-in alg that opens with y2 turns the picture with no edits at all',
     try {
         await openCard(app.page, 5); // built-in a: y2 R' F2 r U r' F R
         assert.equal(await pictureTransform(app.page), DEGREES[180]);
-        assert.equal(await app.page.locator('#boxalg .alg-reset').count(), 0,
-            'nothing here is customized, so Reset must not show');
         assert.equal(await app.page.evaluate(() =>
             document.querySelector('#boxalg .alg-slot .alg-faint').textContent), 'y2 ');
     } finally { await app.close(); }
@@ -124,19 +129,37 @@ test('the same rotation in the non-Preferred alg leaves the picture upright and 
     } finally { await app.close(); }
 });
 
-test('promoting an alg that opens with y takes the picture with it', async () => {
+test('moving the Preferred mark takes the picture with it, and back', async () => {
     const app = await openApp({ url: server.url });
     try {
         await openCard(app.page, 32);
         await editSlot(app.page, 1, "y2 R U R' U' R U2 R'");
-        assert.equal(await pictureTransform(app.page), DEGREES.none);
+        assert.equal(await pictureTransform(app.page), DEGREES.none,
+            'a y-rotation in the non-Preferred alg must not turn the picture');
 
-        await app.page.click('#boxalg .alg-slot:nth-of-type(2) .alg-prefer');
-        assert.equal(await pictureTransform(app.page), DEGREES[180]);
+        await app.page.click('#boxalg .alg-slot:nth-of-type(2) a.alg-star');
+        assert.equal(await pictureTransform(app.page), DEGREES[180],
+            'marking that alg must turn the picture to its leading rotation');
 
         await app.page.reload();
         await openCard(app.page, 32);
         assert.equal(await pictureTransform(app.page), DEGREES[180],
             'the rotated picture must come back rotated after a reload');
+
+        await app.page.click('#boxalg .alg-slot:nth-of-type(1) a.alg-star');
+        assert.equal(await pictureTransform(app.page), DEGREES.none,
+            'marking an alg with no leading rotation must set the picture upright again');
+    } finally { await app.close(); }
+});
+
+test('the turn is animated by default and still when the reader asks for less motion', async () => {
+    const app = await openApp({ url: server.url });
+    try {
+        await openCard(app.page, 31);
+        const timed = () => app.page.evaluate(() =>
+            getComputedStyle(document.getElementById('boxImg')).transitionProperty);
+        assert.equal(await timed(), 'transform', 'the turn should be animated by default');
+        await app.page.emulateMedia({ reducedMotion: 'reduce' });
+        assert.equal(await timed(), 'none', 'reduced motion must take the animation away');
     } finally { await app.close(); }
 });
