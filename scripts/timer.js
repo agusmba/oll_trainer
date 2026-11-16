@@ -483,27 +483,207 @@ function confirmClear()
     }
 }
 
+/* Case card: the two Reference algs are editable in place, always in built-in order.
+   One of them is Preferred, marked by its star; the other slot's star is the only way
+   to move the mark. If the Preferred alg opens with a y-rotation the case picture is
+   turned to match — the rotation is still printed in the alg, but faint, as already
+   applied. */
+
+// Directions checked against a rendered pic/31.svg: the picture is the overhead view
+// (its side stickers point outward), so a y — the cube turning as U does seen from
+// above — turns it 90 degrees clockwise on screen, which is exactly CSS rotate(90deg).
+var yRotationDegrees = { "y": 90, "y2": 180, "y'": 270, "y2'": 180 }; // y2' is the same turn as y2
+
+/// \returns a match when the alg's first move is a y-rotation — y, y', y2 or y2',
+/// surrounded by whitespace, dots, commas or parentheses — its whole leading stretch,
+/// or null. Leading x or z rotations never match.
+function leadingYRotation(alg) {
+    return /^[\s.,()]*(y2'|y2|y'|y)[\s.,()]*/.exec(alg);
+}
+
+/// \returns the degrees to turn the picture, or null when the alg has no leading y-rotation
+function pictureRotationDegrees(alg) {
+    var m = leadingYRotation(alg);
+    return m == null ? null : yRotationDegrees[m[1]];
+}
+
+/// \returns the alg as HTML; when its rotation has been applied to the picture, the
+/// leading stretch carries it rendered faint.
+function algHtml(raw, pictureRotated) {
+    if (pictureRotated) {
+        var m = leadingYRotation(raw);
+        if (m != null)
+            return "<span class='alg-faint'>" + escapeHtml(m[0]) + "</span>"
+                + escapeHtml(raw.slice(m[0].length));
+    }
+    return escapeHtml(raw);
+}
+
+/// Prints the card's two Reference alg slots — exactly two, ever, in built-in order —
+/// each with its star and an in-place editable text target. An empty slot reads as an
+/// invitation to add an alg; nothing else about the card changes as the user works.
+function renderCaseAlgs(i) {
+    var view = caseAlgs(i);
+    var slots = ["a", "a2"];
+    var s = "";
+    for (var k = 0; k < slots.length; k++) {
+        var slot = slots[k];
+        var preferred = slot == view.pref;
+        var text = view[slot];
+        s += "<div class='alg-slot" + (preferred ? " alg-slot-preferred" : "") + "'"
+            + " id='alg" + i + slot + "'>"
+            // the mark itself is inert; only a slot that is not Preferred can be asked
+            // for it, so a tap on the mark can never be a dead control
+            + (preferred
+                ? "<span class='alg-star' role='img' aria-label='Preferred alg'"
+                    + " title='the Preferred alg'>&#9733;</span>"
+                : "<a role='button' tabindex='0' class='alg-star' aria-label='make this the Preferred alg'"
+                    + " title='make this the Preferred alg' onclick='preferAlg(event,"
+                    + i + "," + JSON.stringify(slot) + ")'>&#9734;</a>")
+            + "<a role='button' tabindex='0' class='alg-text' title='edit this Reference alg'"
+            + " onclick='editAlg(event," + i + "," + JSON.stringify(slot) + ")'>"
+            + (text == "" ? "<i class='alg-empty'>(no alg &middot; tap to add)</i>" : algHtml(text, preferred))
+            + "</a>"
+            + "</div>";
+    }
+    document.getElementById("boxalg").innerHTML = s;
+
+    var degrees = pictureRotationDegrees(view[view.pref]);
+    document.getElementById("boxImg").style.transform =
+        degrees == null ? "" : "rotate(" + degrees + "deg)";
+}
+
+/// Pins the card's Reference alg column to the width it had when the card opened, and
+/// never to more than the card can show. The column is as wide as its longest Reference
+/// alg, so a row changing text — a retype, a Custom alg cleared — would rewrap the card,
+/// which would resize and re-centre itself under the reader's thumb. Rows wrap inside
+/// the pinned column instead.
+function lockAlgColumn() {
+    var box = document.getElementById("box");
+    var boxalg = document.getElementById("boxalg");
+    var pad = getComputedStyle(box);
+    var room = box.clientWidth - parseFloat(pad.paddingLeft) - parseFloat(pad.paddingRight);
+    boxalg.style.width = "";
+    boxalg.style.width = Math.min(Math.ceil(boxalg.getBoundingClientRect().width), room) + "px";
+}
+
+// a narrower screen has to re-pin: the width the card chose may no longer fit, and a
+// column wider than the card puts it into a sideways scroll
+window.addEventListener("resize", function () {
+    if (document.getElementById("hintWindow").style.display == "flex")
+        lockAlgColumn();
+});
+
+/// Swaps a slot's text for a one-line field so the Reference alg can be retyped in
+/// place: Enter or losing focus saves it as a Custom alg, Esc abandons the edit. Once
+/// the slot is Custom, the field also carries a mark that clears it back to the
+/// built-in — recovering shipped text happens there, so the idle card never reorganizes.
+function editAlg(event, i, slot) {
+    var holder = document.getElementById("alg" + i + slot);
+    if (holder == null)
+        return;
+    var entry = caseAlgEntry(i);
+    var customized = entry != null && entry[slot] != null;
+    // autocapitalize and autocorrect would otherwise eat the quotes and cases of a
+    // phone keyboard typing R U R' U'
+    holder.innerHTML = "<input type='text' class='alg-edit' autocomplete='off'"
+        + " spellcheck='false' autocapitalize='none' autocorrect='off' value='"
+        + escapeHtml(caseAlgs(i)[slot]) + "'>";
+    if (customized)
+        holder.insertAdjacentHTML("beforeend",
+            "<a role='button' tabindex='0' class='alg-restore'"
+            + " aria-label='clear this Custom alg'"
+            + " title='clear this Custom alg; the built-in Reference alg comes back'"
+            + ">&#8634;</a>");
+    var input = holder.firstElementChild;
+    var restore = holder.querySelector(".alg-restore");
+    input.focus();
+    input.select();
+    var settled = false;
+    function commit() {
+        if (settled)
+            return;
+        settled = true;
+        setCustomAlg(i, slot, input.value.trim());
+        renderCaseAlgs(i);
+        refocusAlgText("#alg" + i + slot);
+    }
+    function abandon() {
+        if (settled)
+            return;
+        settled = true;
+        renderCaseAlgs(i);
+        refocusAlgText("#alg" + i + slot);
+    }
+    function restoreBuiltIn() {
+        settled = true; // the text being typed is discarded by restoring, by design
+        setCustomAlg(i, slot, algsInfo[i][slot]);
+        renderCaseAlgs(i);
+        refocusAlgText("#alg" + i + slot);
+    }
+    input.addEventListener("blur", function (ev) {
+        // bound for the restore, the field keeps its commit: the restore has its own
+        // way out, and re-rendering under the keyboard would carry it out of the row.
+        // A tap on anything unfocusable reports no relatedTarget and must still commit.
+        if (restore != null && ev.relatedTarget == restore)
+            return;
+        commit();
+    });
+    input.addEventListener("keydown", function (ev) {
+        if (ev.keyCode == 13)
+            commit();
+        else if (ev.keyCode == 27) {
+            ev.stopPropagation(); // Esc backs out of the edit, not out of the card
+            abandon();
+        }
+    });
+    if (restore != null) {
+        restore.addEventListener("mousedown", function (ev) {
+            ev.preventDefault(); // stay in the field: the half-typed text must not commit first
+        });
+        restore.addEventListener("click", function (ev) {
+            ev.preventDefault();
+            restoreBuiltIn();
+        });
+    }
+}
+
+/// Moves the Preferred mark to a slot, which is the only thing a star can do: the mark
+/// lands here, and the picture turns to this alg's leading y-rotation — or back to
+/// upright when this one has none.
+function preferAlg(event, i, slot) {
+    event.stopPropagation();
+    setPreferredAlg(i, slot);
+    renderCaseAlgs(i);
+    refocusAlgText("#alg" + i + slot);
+}
+
+
+// A re-render of the algs detaches whatever control was focused. A keyboard user left
+// on the body walks out of the dialog on the next Tab, which the focus trap — a
+// listener on the dialog itself — has no way to catch, so every path that re-renders
+// puts the focus back on a slot instead.
+function refocusAlgText(slotSelector) {
+    var text = document.querySelector(slotSelector + " .alg-text");
+    if (text != null)
+        text.focus();
+}
+
 function displayBox(event,i) {
     // the peek is a dialog: it shows on top of the solve, and the backdrop or Esc
     // dismisses it
     document.getElementById("hintWindowBack").style.display='block';
     document.getElementById("hintWindow").style.display='flex';
     document.getElementById("boxTitle").innerHTML = '#' + i + " " + algsInfo[i]["name"];
-    document.getElementById("boxalg").innerHTML = algsInfo[i]["a"];
-    if (algsInfo[i]["a2"] != "")
-        document.getElementById("boxalg").innerHTML += "<br><br>" + algsInfo[i]["a2"];
-    //document.getElementById("boxsetup").innerHTML = "Setup: " + window.ollMap[i][0];
     document.getElementById("boxsetup").innerHTML = "Setup: " + inverse_scramble(algsInfo[i]["a"]);
+    // The Setup line always derives from the built-in Reference alg; a Custom alg never moves it.
     document.getElementById("boxImg").src="pic/"+i+".svg";
     document.getElementById("boxImg").alt = "Case " + i + " " + algsInfo[i]["name"];
+    renderCaseAlgs(i);
+    lockAlgColumn();
     var close = document.getElementById("boxClose");
     if (close)
         close.focus();
-}
-
-function hideBox() {
-    document.getElementById("hintWindow").style.display='none';
-    document.getElementById("hintWindowBack").style.display='none';
 }
 
 function hideBox() {
