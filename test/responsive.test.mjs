@@ -165,11 +165,15 @@ test('the tail of a stop does not start the next solve', async () => {
         assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
             'the follow-up tap produced a solve');
 
-        // past the cooldown the clock answers again
-        await app.page.evaluate(() => new Promise((r) => setTimeout(r, 600)));
-        await tapCenter(app.page, '#timer');
+        // the press that begins inside the cooldown is spent, so its release must be the
+        // start of the next solve: press, hold past the window, release
+        const clock = await boxOf(app.page, '#timer');
+        await app.page.mouse.move(clock.x + clock.width / 2, clock.y + clock.height / 2);
+        await app.page.mouse.down();
+        await app.page.evaluate(() => new Promise((r) => setTimeout(r, 800)));
+        await app.page.mouse.up();
         assert.equal(await app.page.evaluate(() => window.running), true,
-            'the clock stopped answering once the cooldown passed');
+            'a press-and-release that began inside the cooldown never started the next solve');
         assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
             'a start must not record a time');
     } finally { await app.close(); }

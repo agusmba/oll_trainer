@@ -1,6 +1,8 @@
 // Weights module. A Weight belongs to the (Case, Selection) pair: a Case has no Weight
 // until it is selected, and every Weight is bounded so a Case can neither vanish from the
-// draw nor dominate it (ADR-0001). Session-scoped — never persisted.
+// draw nor dominate it (ADR-0001). The Weight map is saved as pairs against the Goal and
+// Selection it was earned against (see saveWeights); a store for a different contract
+// restores nothing, so a reload of a changed contract is uniform Weights.
 
 var weightMin = 1 / 8;
 var weightMax = 8;

@@ -470,6 +470,15 @@ test('changing the Selection and clearing the session reset every weight', async
         assert.equal(await app.page.evaluate(() => window.timesArray.length), 0, 'session was not cleared');
         assert.equal(await app.page.evaluate(() => weightOfCase(10)), 1,
             'clearing the session must reset every weight');
+        assert.equal((await app.page.evaluate(() => document.getElementById('times').textContent)).trim(), '',
+            'the times list on screen still shows the cleared session');
+
+        // the clear has to survive a reload: the stored history is what a reload reads back
+        await app.page.reload();
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 0,
+            'the cleared session came back from localStorage on reload');
+        assert.equal((await app.page.evaluate(() => document.getElementById('times').textContent)).trim(), '',
+            'the cleared session is still on screen after a reload');
     } finally { await app.close(); }
 });
 

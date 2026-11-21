@@ -48,6 +48,11 @@ when reviewing a diff; it holds the calls no check can make.
   variable names (`timerActivatingButton`, `recapBacklog`).
 - Anything that survives a reload goes in localStorage; a read that can come back null
   gets a fallback value.
+- A comment that contradicts its code is a bug: fix it in the same diff. A comment that
+  repeats the next line gets deleted.
+- A decision with alternatives goes in `local-docs/adr/`. The comment carries the local
+  constraint the code cannot show — load order, a browser behaviour, the physical gesture —
+  never the choice.
 
 ## Tests
 

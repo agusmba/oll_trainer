@@ -8,7 +8,6 @@ var goal = 0;
 
 displayStats(); // after loading
 
-/// invokes generateScramble() and sets scramble string
 function showScramble()
 {
     window.allowStartingTimer = false;
@@ -63,7 +62,6 @@ function generateScramble()
     if (window.lastScramble != "")
         document.getElementById("last_scramble").innerHTML = "last scramble: " + window.lastScramble +
             " <span onclick='displayBox(event,"+lastCase+")' class='ollNameStats'>("+algsInfo[lastCase]["name"] + ") </span><a role='button' tabindex='0' class='settings' onclick='confirmUnsel("+lastCase+")'>unselect</a>";
-    // get random case
     var caseNum = 0;
     if (window.mode == "recap" && window.recapBacklog.length == 0) {
         // Recap's backlog is empty, so Recap is over: the solve that just ran was its
@@ -72,9 +70,7 @@ function generateScramble()
     }
 
     if (window.mode == "recap") {
-        // select the case
         caseNum = randomElement(window.recapBacklog);
-        // remove it from the backlog
         const index = window.recapBacklog.indexOf(caseNum);
         window.recapBacklog.splice(index, 1);
         saveSession(); // a reload must pick Recap up where this draw left off
@@ -105,7 +101,6 @@ function replaceAll(str,mapObj) {
     });
 }
 
-// returns new string with transformed algorithm.
 // Returnes sequence of moves that get the cube to the same position as (alg + rot) does, but without cube rotations.
 // Example: applyRotationForAlgorithm("R U R'", "y") = "F U F'"
 function applyRotationForAlgorithm(alg, rot)
@@ -149,7 +144,6 @@ function inverse_scramble(s)
     return result.substr(0, result.length-1);
 }
 
-/*        TIMER        */
 
 var startMilliseconds, stopMiliseconds; // date and time when timer was started
 var allowed = true; // allowed var is for preventing auto-repeat when you hold a button
@@ -234,7 +228,6 @@ function isTypingTarget(target)
     return tag == "INPUT" || tag == "TEXTAREA" || tag == "SELECT" || target.isContentEditable;
 }
 
-/// handles keypup and keydown events. Starts timer etc.
 document.getElementById("bodyid").addEventListener("keydown", function(event) {
 
     if (isTypingTarget(event.target))
@@ -251,7 +244,6 @@ document.getElementById("bodyid").addEventListener("keydown", function(event) {
         event.preventDefault();
     }
 
-    // delete hotkey - remove last
     if (event.keyCode == 46 && !running)
     {
         if (!!window.event.shiftKey)
@@ -269,7 +261,6 @@ document.getElementById("bodyid").addEventListener("keydown", function(event) {
 
     if (running)
     {
-        // stop timer on any button
         timerStop();
         return;
     }
@@ -280,7 +271,6 @@ document.getElementById("bodyid").addEventListener("keydown", function(event) {
     }
 });
 
-/// keyup event for starting the timer
 document.getElementById("bodyid").addEventListener("keyup", function(event) {
     allowed = true;
     if (overlayOpen() || window.mode == "selection")
@@ -360,9 +350,9 @@ function timerStop() {
 }
 
 function timerSetReady() {
+    waiting = false; // the press is spent, so the next release is a fresh gesture
     if (startTooSoon())
         return; // the stopped time stays on screen, so the reader keeps the time they made
-    waiting = false;
     timer.innerHTML = "0.00";
     timer.classList.remove("is-stopped");
     timer.classList.add("is-ready");
@@ -428,7 +418,6 @@ function resetDefaults()
     adjustSize('timer', 0);
 }
 
-/* STATS */
 
 // http://stackoverflow.com/questions/1787322/htmlspecialchars-equivalent-in-javascript
 function escapeHtml(text) {
@@ -458,7 +447,6 @@ function appendStats()
     displayStats();
 }
 
-/// removes time from array and invokes displayStats()
 function removeTime(i)
 {
     window.timesArray.splice(i, 1);
@@ -471,7 +459,6 @@ function updateInstancesIndeces() {
         window.timesArray[i]["index"] = i;
 }
 
-/// requests confirmation and deletes result
 function confirmRem(i)
 {
     var inst = window.timesArray[i];
@@ -490,14 +477,13 @@ function confirmRemLast()
         confirmRem(i - 1);
 }
 
-/// requests confirmation and empty times array (clear session)
 function confirmClear()
 {
     if (confirm("Are you sure you want to clear session?")) {
         window.timesArray = [];
         resetWeights();
         saveWeights(); // the cleared contract is the one a reload must bring back
-        document.getElementById('infoHeader').innerHTML = ('')
+        displayStats(); // repaints the cleared list and stores it, so a reload cannot bring the times back
     }
 }
 

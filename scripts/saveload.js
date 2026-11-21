@@ -2,7 +2,6 @@
 /// \value stringified json object or standard type
 /// \returns true if succeed
 function saveLocal(name, value) {
-    // If the platform supports localStorage, then save the value
     try {
         localStorage.setItem(name, value);
         return true;
@@ -16,7 +15,6 @@ function saveLocal(name, value) {
 
 /// \returns loaded value or specified defaultValue in case of error
 function loadLocal(name, defaultValue) {
-    // If the platform supports localStorage, then load the selection
     try {
         return localStorage.getItem(name);
     }
