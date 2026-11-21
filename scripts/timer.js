@@ -77,6 +77,7 @@ function generateScramble()
         // remove it from the backlog
         const index = window.recapBacklog.indexOf(caseNum);
         window.recapBacklog.splice(index, 1);
+        saveSession(); // a reload must pick Recap up where this draw left off
 
     } else { // practice
         caseNum = pickWeightedCase(window.selCases);
@@ -154,6 +155,18 @@ var startMilliseconds, stopMiliseconds; // date and time when timer was started
 var allowed = true; // allowed var is for preventing auto-repeat when you hold a button
 var running = false; var waiting = false;
 var timer = document.getElementById("timer");
+
+// The hand that stops the clock keeps moving: a second finger, or the same finger tapping
+// again, lands on the clock straight after the stop. A start arriving within this window is
+// the tail of that hand, not a new solve.
+var startCooldownMs = 500;
+
+/// \returns true when a start gesture lands within the cooldown of the stop that just happened
+function startTooSoon() {
+    if (stopMiliseconds == null)
+        return false; // no solve has been stopped yet, so nothing to be the tail of
+    return new Date().getTime() - stopMiliseconds < startCooldownMs;
+}
 
 /// \returns true when the primary input is a finger rather than a pointer: a coarse
 /// pointer, or touch points on a browser that reports no pointer. The clock is the same
@@ -347,6 +360,8 @@ function timerStop() {
 }
 
 function timerSetReady() {
+    if (startTooSoon())
+        return; // the stopped time stays on screen, so the reader keeps the time they made
     waiting = false;
     timer.innerHTML = "0.00";
     timer.classList.remove("is-stopped");
@@ -354,6 +369,8 @@ function timerSetReady() {
 }
 
 function timerStart() {
+    if (startTooSoon())
+        return; // the tail of the hand that stopped the clock, not a new solve
     var d = new Date();
     startMilliseconds = d.getTime();
     running = true;
@@ -437,6 +454,7 @@ function appendStats()
     // Practice steers the draw by Weight; Recap replays the Selection, so its solves
     // must not skew the Weights earned against the Goal.
     if (window.mode == "practice") bumpWeight(window.lastCase, result.ms, window.goal);
+    saveWeights(); // the Weights earned against this Goal and Selection survive a reload
     displayStats();
 }
 
@@ -478,8 +496,8 @@ function confirmClear()
     if (confirm("Are you sure you want to clear session?")) {
         window.timesArray = [];
         resetWeights();
+        saveWeights(); // the cleared contract is the one a reload must bring back
         document.getElementById('infoHeader').innerHTML = ('')
-        displayStats();
     }
 }
 
@@ -876,10 +894,12 @@ function readGoal() {
 
 function applyGoal() {
     window.goal = readGoal();
+    saveGoal(window.goal);
     // the Goal is part of the practice contract: every Weight is earned against it,
     // so it is stale the moment the Goal changes (ADR-0001), including when the Goal
     // is turned off (0, negative or empty).
     resetWeights();
+    saveWeights(); // a changed contract means uniform weights, the only thing a reload can bring back
     displayStats();
 }
 
@@ -887,15 +907,18 @@ function applyGoal() {
 /// The only reset that is not destructive: the Selection and the times history survive.
 function applyResetWeights() {
     resetWeights();
+    saveWeights();
     displayStats();
 }
 
-/// The Goal is never app-persisted, but browsers restore form values across a reload, so the
-/// goal input can come back holding the previous Goal. Whatever that input shows once the page
-/// is loaded is the Goal in effect; showing a Goal the app is not using would read as a bug.
-/// Weights stay uniform here: loadSelection() already rebuilt them (ADR-0001).
+/// The Goal is app-persisted, so a reload brings it back the way the Selection does. The
+/// store is the truth and the goal input is repainted to match it, so what the reader sees
+/// is the Goal in effect. Weights stay uniform here: loadSelection() already rebuilt them
+/// (ADR-0001).
 function loadGoal() {
-    window.goal = readGoal();
+    var stored = loadGoalValue();
+    document.querySelector('#goal_in').value = stored;
+    window.goal = stored;
     displayStats(); // reprint the times list, now that weights may be live again
 }
 

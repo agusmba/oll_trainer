@@ -80,3 +80,21 @@ function weightOfCase(caseNum)
         return null;
     return weightMap.get(caseNum);
 }
+
+/// \returns the Weight map as [Case, Weight] pairs, the form localStorage keeps
+function weightsToStore()
+{
+    var pairs = [];
+    weightMap.forEach(function (w, c) { pairs.push([c, w]); });
+    return pairs;
+}
+
+/// Replaces the Weight map with [Case, Weight] pairs from the store.
+function weightsFromStore(pairs)
+{
+    weightMap = new Map();
+    if (pairs == null)
+        return;
+    for (var i = 0; i < pairs.length; i++)
+        weightMap.set(pairs[i][0], pairs[i][1]);
+}

@@ -37,7 +37,77 @@ function loadSelection() {
     window.selCases = JSON.parse(loadLocal('ollSelection', '[31,32]'));
     if (window.selCases == null)
         window.selCases = [31,32];
-    saveSelection();
+    resetWeights(); // uniform at load; loadWeights() brings the earned ones back once the Goal is known
+}
+
+/* Goal: the target solve time, one member of the practice contract. A phone browser
+   restores no form values across a reload, so the app keeps the Goal in localStorage
+   itself and repaints the goal input from the store at load. */
+
+/// \param goal in ms, 0 meaning dynamic weights off
+function saveGoal(goal) {
+    saveLocal('ollGoal', JSON.stringify(goal));
+}
+
+/// \returns the stored Goal, 0 when nothing is stored
+function loadGoalValue() {
+    var stored = JSON.parse(loadLocal('ollGoal', '0'));
+    return (typeof stored == "number" && !isNaN(stored)) ? stored : 0;
+}
+
+/* Weights: saved alongside the practice contract (Goal + Selection) they were earned
+   against, which is the contract ADR-0001 says makes every Weight stale the moment it
+   changes. A store that does not match the current Goal and Selection is no store. */
+
+function saveWeights() {
+    saveLocal('ollWeights', JSON.stringify({
+        goal: window.goal,
+        selection: window.selCases,
+        pairs: weightsToStore(),
+    }));
+}
+
+/// Restores the Weights saved against the current Goal and Selection; any other store
+/// leaves them uniform, which is what a changed contract means.
+function loadWeights() {
+    var stored = JSON.parse(loadLocal('ollWeights', '[]'));
+    if (stored == null || stored.goal != window.goal || !sameSet(stored.selection, window.selCases))
+        resetWeights();
+    else
+        weightsFromStore(stored.pairs);
+}
+
+/// \returns true when the two lists hold the same Case numbers, in any order
+function sameSet(a, b) {
+    if (a == null || b == null || a.length != b.length)
+        return false;
+    var sortedA = a.slice().sort(function (x, y) { return x - y; });
+    var sortedB = b.slice().sort(function (x, y) { return x - y; });
+    for (var i = 0; i < sortedA.length; i++)
+        if (sortedA[i] != sortedB[i])
+            return false;
+    return true;
+}
+
+/* Session: Mode, plus the Recap backlog — the Cases Recap has not replayed. Together
+   with the Goal, the Weights, the Selection and the times history, this is the practice
+   state that survives a reload. */
+
+function saveSession() {
+    saveLocal('ollMode', window.mode);
+    saveLocal('ollRecap', JSON.stringify(window.recapBacklog));
+}
+
+/// \returns the stored Mode, "selection" when nothing is stored or the store is not a Mode
+function loadMode() {
+    var stored = loadLocal('ollMode', 'selection');
+    return (stored == "practice" || stored == "recap") ? stored : "selection";
+}
+
+/// \returns the stored Recap backlog, [] when nothing is stored
+function loadRecapBacklog() {
+    var stored = JSON.parse(loadLocal('ollRecap', '[]'));
+    return stored == null ? [] : stored;
 }
 
 /* Custom algs: user edits to a Case's Reference algs. One store for every Case,

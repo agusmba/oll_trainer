@@ -13,16 +13,24 @@ The set of cases the user has chosen to practice. Persisted across sessions.
 _Avoid_: selected cases array
 
 **Goal**:
-A target solve time in ms. A solve at or under the Goal beats it. Session-scoped — never persisted by the app.
+A target solve time in ms. A solve at or under the Goal beats it. The app persists the Goal: a reload brings back the Goal the reader left, not the app's default.
 _Avoid_: target, par
 
 **Weight**:
-How often a Case is drawn relative to the other cases in the current Selection. A Weight belongs to the (Case, Selection) pair, not to the Case alone: it is earned against the current Selection and Goal, is bounded so a Case can neither vanish nor dominate, and resets whenever the practice contract changes. Session-scoped — never persisted.
+How often a Case is drawn relative to the other cases in the current Selection. A Weight belongs to the (Case, Selection) pair, not to the Case alone: it is earned against the current Selection and Goal, is bounded so a Case can neither vanish nor dominate, and resets whenever the practice contract changes. The app persists the Weights earned against one contract, and a reload restores them for exactly that Goal and Selection; any other store is uniform Weights.
 _Avoid_: probability, frequency
 
 **Practice contract**:
 The trio of Selection + Goal + Weight. Changing any member resets the Weight of the whole Selection.
 _Avoid_: session (overloaded — the times history is a separate thing)
+
+**Practice session**:
+The practice state the app keeps across a reload: Mode, Goal, Weights and the Recap backlog, alongside the Selection, the times history and the Custom algs. Weights come back only for the contract they were earned against, so a reload that changes the Goal or the Selection brings back uniform Weights.
+_Avoid_: session (the clear-session button clears the times history alone)
+
+**Start cooldown**:
+The window after a stop during which a start on the clock is ignored: the hand that stopped the clock keeps moving — a second finger, or the same finger tapping twice — and its tail is not a new solve. 500 ms, measured from the stop.
+_Avoid_: debounce, anti-ghost tap
 
 **Case card**:
 The dialog that shows one Case while solving: its picture, name, the alg and the setup the scramble came from. Opened from a Case name in the times history or from a tile of the Selection summary. Lives in the markup as `hintWindow` / `box`, which is the picture's window, not the Case itself.

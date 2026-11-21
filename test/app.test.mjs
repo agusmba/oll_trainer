@@ -236,6 +236,34 @@ test('space starts and stops the timer and records one time', async () => {
     } finally { await app.close(); }
 });
 
+test('a key pressed straight after a stop does not start the next solve', async () => {
+    const app = await openServedApp();
+    try {
+        await clickPractice(app.page);
+        await app.page.keyboard.press('Space');
+        await app.page.waitForTimeout(150);
+        await app.page.keyboard.press('Space'); // stop the solve
+        const stopped = (await app.page.evaluate(() => document.getElementById('timer').textContent)).trim();
+
+        // the hand that stopped the clock is still on the key
+        await app.page.keyboard.press('Space');
+        const gap = await app.page.evaluate(() => Date.now() - window.stopMiliseconds);
+        assert.ok(gap < 500, `the follow-up key landed ${gap}ms after the stop, outside the window the fix must cover`);
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'a start inside the cooldown ran the next solve straight away');
+        assert.equal((await app.page.evaluate(() => document.getElementById('timer').textContent)).trim(), stopped,
+            'the clock left the stopped time, so the reader lost the time they had just made');
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
+            'the follow-up key produced a solve');
+
+        // past the cooldown the clock answers again
+        await app.page.evaluate(() => new Promise((r) => setTimeout(r, 600)));
+        await app.page.keyboard.press('Space');
+        assert.equal(await app.page.evaluate(() => window.running), true,
+            'the clock stopped answering once the cooldown passed');
+    } finally { await app.close(); }
+});
+
 test('empty localStorage does not break the stats list', async () => {
     const app = await openServedApp();
     try {
@@ -572,7 +600,7 @@ test('re-committing the same Goal keeps the Weights earned against it', async ()
     } finally { await app.close(); }
 });
 
-test('a reload adopts the Goal the goal input shows, so Weights go live again', async () => {
+test('a reload brings back the Goal in Practice Mode, so Weights go live again', async () => {
     const app = await openServedApp();
     try {
         await app.page.evaluate(() => { window.selCases = [10, 20]; saveSelection(); });
@@ -581,16 +609,15 @@ test('a reload adopts the Goal the goal input shows, so Weights go live again', 
         await app.page.keyboard.press('Tab');
         assert.equal(await app.page.evaluate(() => window.goal), 1200);
 
-        // browsers restore form values across a reload; mimic one
-        await app.page.addInitScript(() => {
-            document.addEventListener('DOMContentLoaded', () => {
-                document.getElementById('goal_in').value = '1200';
-            });
-        });
         await app.page.reload();
-        await clickPractice(app.page);
 
-        assert.equal(await app.page.evaluate(() => document.getElementById('goal_in').valueAsNumber), 1200);
+        // Mode and the Goal are app-persisted, so the solve screen comes back on its own,
+        // repainted to the Goal the store holds; the app must not lean on the browser
+        // restoring the goal input for it.
+        assert.equal(await app.page.evaluate(() => window.mode), 'practice',
+            'the solve screen did not come back on reload');
+        assert.equal(await app.page.evaluate(() => document.getElementById('goal_in').valueAsNumber), 1200,
+            'the goal input must show the Goal in effect, not a Goal the app is not using');
         assert.equal(await app.page.evaluate(() => window.goal), 1200,
             'the Goal in effect must be the Goal the input shows');
 
