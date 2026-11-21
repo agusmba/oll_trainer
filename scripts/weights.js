@@ -1,6 +1,8 @@
 // Weights module. A Weight belongs to the (Case, Selection) pair: a Case has no Weight
 // until it is selected, and every Weight is bounded so a Case can neither vanish from the
-// draw nor dominate it (ADR-0001). Session-scoped — never persisted.
+// draw nor dominate it (ADR-0001). The Weight map is saved as pairs against the Goal and
+// Selection it was earned against (see saveWeights); a store for a different contract
+// restores nothing, so a reload of a changed contract is uniform Weights.
 
 var weightMin = 1 / 8;
 var weightMax = 8;
@@ -79,4 +81,22 @@ function weightOfCase(caseNum)
     if (!weightMap.has(caseNum))
         return null;
     return weightMap.get(caseNum);
+}
+
+/// \returns the Weight map as [Case, Weight] pairs, the form localStorage keeps
+function weightsToStore()
+{
+    var pairs = [];
+    weightMap.forEach(function (w, c) { pairs.push([c, w]); });
+    return pairs;
+}
+
+/// Replaces the Weight map with [Case, Weight] pairs from the store.
+function weightsFromStore(pairs)
+{
+    weightMap = new Map();
+    if (pairs == null)
+        return;
+    for (var i = 0; i < pairs.length; i++)
+        weightMap.set(pairs[i][0], pairs[i][1]);
 }

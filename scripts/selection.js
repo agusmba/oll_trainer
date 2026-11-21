@@ -142,7 +142,6 @@ function makeAllNoneCard() {
         "<b>All Cases (57)</b><span class='group-count'>selected: <span id='csi'></span></span></td></tr></table>";
 }
 
-/// iterates the ollMap and highlights HTML elements according to the selection
 function renderSelection()
 {
     var s = makeAllNoneCard();

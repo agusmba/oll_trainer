@@ -140,6 +140,45 @@ test('press and release on the clock starts and stops the timer, as a StackMat d
     } finally { await app.close(); }
 });
 
+test('the tail of a stop does not start the next solve', async () => {
+    const app = await openPhone();
+    try {
+        await clickPractice(app.page);
+
+        await tapCenter(app.page, '#timer');
+        await app.page.waitForTimeout(120);
+        await tapCenter(app.page, '#timer'); // stop the solve
+        const stopped = (await app.page.textContent('#timer')).trim();
+        assert.match(stopped, /^\d+\.\d+$/, `the press and release did not record a solve: "${stopped}"`);
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
+            'precondition: the solve was not recorded');
+
+        // the hand that stopped the timer keeps moving: a second finger, or the same
+        // finger tapping again, lands right where the thumb already is
+        await tapCenter(app.page, '#timer');
+        const gap = await app.page.evaluate(() => Date.now() - window.stopMiliseconds);
+        assert.ok(gap < 500, `the follow-up tap landed ${gap}ms after the stop, outside the window the fix must cover`);
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'a start inside the cooldown ran the next solve straight away');
+        assert.equal((await app.page.textContent('#timer')).trim(), stopped,
+            'the clock left the stopped time, so the reader lost the time they had just made');
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
+            'the follow-up tap produced a solve');
+
+        // the press that begins inside the cooldown is spent, so its release must be the
+        // start of the next solve: press, hold past the window, release
+        const clock = await boxOf(app.page, '#timer');
+        await app.page.mouse.move(clock.x + clock.width / 2, clock.y + clock.height / 2);
+        await app.page.mouse.down();
+        await app.page.evaluate(() => new Promise((r) => setTimeout(r, 800)));
+        await app.page.mouse.up();
+        assert.equal(await app.page.evaluate(() => window.running), true,
+            'a press-and-release that began inside the cooldown never started the next solve');
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
+            'a start must not record a time');
+    } finally { await app.close(); }
+});
+
 test('a tap on a case picture selects it on a phone', async () => {
     const app = await openPhone();
     try {

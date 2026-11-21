@@ -157,16 +157,18 @@
 
 <!-- Load order is load-bearing: scripts/ui.js defines overlayOpen() and trapFocus(),
     which scripts/timer.js reads to keep its keys from timing behind a dialog. -->
-<script src="scripts/algsinfo.js?v12"></script>
-<script src="scripts/algsmap.js?v12"></script>
-<script src="scripts/weights.js?v12"></script>
-<script src="scripts/saveload.js?v12"></script>
-<script src="scripts/selection.js?v12"></script>
-<script src="scripts/timer.js?v12"></script>
-<script src="scripts/ui.js?v12"></script>
-<script src="scripts/practice.js?v12"></script>
+<script src="scripts/algsinfo.js?v13"></script>
+<script src="scripts/algsmap.js?v13"></script>
+<script src="scripts/weights.js?v13"></script>
+<script src="scripts/saveload.js?v13"></script>
+<script src="scripts/selection.js?v13"></script>
+<script src="scripts/timer.js?v13"></script>
+<script src="scripts/ui.js?v13"></script>
+<script src="scripts/practice.js?v13"></script>
 <script>
-changeMode("selection");
+// The app opens where the reader left it: Mode and the Recap backlog come back from
+// localStorage, so a reload lands on the solve screen, not on the case grid.
+changeMode(loadMode(), loadRecapBacklog());
 // The Installed app's worker, registered only where there is an origin to serve it: a
 // filesystem path is the Offline copy, which needs no worker and must not fill a console
 // with a failure the reader has no way to fix. A registration that fails outright —

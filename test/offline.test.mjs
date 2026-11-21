@@ -247,7 +247,10 @@ test('the app opens and works after its origin goes away', async () => {
         assert.match(shown, /^\d+\.\d+$/, `offline, the timer did not stop on a time: "${shown}"`);
 
         await app.page.reload();
-        await clickPractice(app.page);
+        // Mode is app-persisted, so the solve screen comes back on its own: the offline
+        // visitor lands on the time they solved, without tapping through the grid.
+        assert.equal(await app.page.evaluate(() => window.mode), 'practice',
+            'the solve screen did not come back offline');
         const history = await app.page.evaluate(() => document.getElementById('times').textContent);
         assert.match(history, /\d+\.\d+/, `the time solved offline is not in the history: "${history.trim()}"`);
 
