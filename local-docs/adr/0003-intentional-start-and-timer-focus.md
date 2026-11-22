@@ -1,0 +1,9 @@
+# Intentional start and timer focus
+
+A solve starts with a held press. The clock arms at press-down, Timer focus — the solve screen reduced to the clock alone — enters when the Start gate is met (500 ms by default, configurable 0..1000 in Settings, persisted), and the release after the gate starts the timer. We decided this because a quick tap on a screen the thumb rests on is not a solve: the reader wants the start to carry intention, and the screen during a solve should be the timer alone, not the Goal, the times and the topbar.
+
+An armed finger that wanders is not a start, and dropping the arm must not be a dead end: dragging more than 15 px inside Timer focus shows the Cancel band across the bottom 25% of the screen, reading Cancel. Releasing on it abandons the arm, releasing anywhere else starts the solve, and moving away leaves the band. The keyboard is exempt from the gate: Space press-and-release starts as it always has, and ESC cancels the armed state, because a keyboard press has no drag to cancel and a deliberate Space is already intentional. A gate of 0 turns the gate off: focus enters at press-down and a quick tap starts, the old behavior.
+
+The Start cooldown re-derives under the gate: it gates the **arm**, not the start, so a press-down inside 500 ms of a stop never arms and the tail of the stopping hand cannot flash a focus screen; its release begins a fresh gesture, as ADR-0002 established.
+
+Considered: keeping the full interface visible during a solve — rejected, the eye is on the cube and the interface crowds the timer; a keyboard gate — rejected, no drag to cancel; a Cancel band that follows the finger — rejected, a chase: the thumb wanders and the target moves with it; the gate as preset buttons — rejected, a number field is the pattern the Goal and the sizes already use.
