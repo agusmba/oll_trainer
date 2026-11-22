@@ -899,3 +899,42 @@ test('in the touch-event fallback, a second finger never starts the solve', asyn
             'the touch fallback did not record its solve');
     } finally { await app.close(); }
 });
+
+test('a real finger drag keeps Timer focus and raises the Cancel band', async () => {
+    const app = await openPhone();
+    try {
+        const cdp = await app.context.newCDPSession(app.page);
+        const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points });
+        await tapCenter(app.page, '#practiceButton');
+        const clock = await boxOf(app.page, '#timer');
+        const cx = clock.x + clock.width / 2, cy = clock.y + clock.height / 2;
+
+        await touch('touchStart', [{ x: cx, y: cy, id: 0 }]);
+        await app.page.waitForTimeout(650); // past the Start gate
+        assert.ok(!(await onScreen(app.page, '.goal-row')), 'the press never entered Timer focus');
+        for (let step = 1; step <= 6; step++) // the finger wanders inside the focused screen
+            await touch('touchMove', [{ x: cx, y: cy - step * 12, id: 0 }]);
+        assert.ok(!(await onScreen(app.page, '.goal-row')), 'the dragging finger left Timer focus');
+        assert.ok(await onScreen(app.page, '#cancelBand'), 'the dragging finger never raised the Cancel band');
+
+        const band = await boxOf(app.page, '#cancelBand');
+        const bx = band.x + band.width / 2, by = band.y + band.height / 2;
+        await touch('touchMove', [{ x: bx, y: by, id: 0 }]);
+        await touch('touchEnd', [{ x: bx, y: by, id: 0 }]); // a release on the band
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'a release on the band started a solve');
+        assert.ok(await onScreen(app.page, '.goal-row'), 'the interface stayed hidden after the cancel');
+
+        // a release away from the band, on a real finger, starts the solve
+        await app.page.waitForTimeout(600); // past the Start cooldown
+        await touch('touchStart', [{ x: cx, y: cy, id: 0 }]);
+        await app.page.waitForTimeout(650);
+        await touch('touchMove', [{ x: cx, y: cy - 40, id: 0 }]); // wander, so the band shows
+        await touch('touchMove', [{ x: cx, y: cy, id: 0 }]); // back off the band
+        await touch('touchEnd', [{ x: cx, y: cy, id: 0 }]);
+        assert.equal(await app.page.evaluate(() => window.running), true,
+            'the real press-and-release did not start the solve');
+        await touch('touchStart', [{ x: cx, y: cy, id: 0 }]); // the next press stops
+        await touch('touchEnd', [{ x: cx, y: cy, id: 0 }]);
+    } finally { await app.close(); }
+});

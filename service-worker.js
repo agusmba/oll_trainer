@@ -34,9 +34,9 @@ const VERSIONED_RE = /[?&]v\d+/;
 const PRECACHE_URLS = [
     "index.html",
     "manifest.json",
-    "styles/main.css?v7",
-    "styles/selection.css?v7",
-    "styles/timer.css?v7",
+    "styles/main.css?v8",
+    "styles/selection.css?v8",
+    "styles/timer.css?v8",
     "scripts/algsinfo.js?v14",
     "scripts/algsmap.js?v14",
     "scripts/weights.js?v14",
