@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import {
     openApp, selectedCases, lastCase, isValidScramble, caseCellIds, brokenImages,
-    clickCase, clickGroup, clickPractice, clickRecap, closeBrowser,
+    clickCase, clickGroup, clickPractice, clickRecap, closeBrowser, onScreen, boxOf, pressHoldRelease,
 } from './harness.mjs';
 import { serveRepo } from './server.mjs';
 
@@ -194,6 +194,20 @@ test('empty selection does not start the timer', async () => {
         await clickPractice(app.page);
         assert.match(await app.page.evaluate(() => document.getElementById('scramble').textContent), /select cases/);
         assert.equal(await app.page.evaluate(() => window.allowStartingTimer), false);
+
+        // a press inside a refused selection never arms: no Timer focus, no gate, no solve
+        const clock = await boxOf(app.page, '#timer');
+        await app.page.mouse.move(clock.x + clock.width / 2, clock.y + clock.height / 2);
+        await app.page.mouse.down();
+        await app.page.waitForTimeout(650);
+        assert.equal((await app.page.textContent('#timer')).trim(), 'ready',
+            'a press inside an empty selection armed the clock');
+        assert.ok(await onScreen(app.page, '.goal-row'), 'the empty-selection press entered Timer focus');
+        await app.page.mouse.up();
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'the press-and-hold ran a solve with nothing selected');
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 0,
+            'a solve was recorded with nothing selected');
     } finally { await app.close(); }
 });
 
@@ -261,6 +275,148 @@ test('a key pressed straight after a stop does not start the next solve', async 
         await app.page.keyboard.press('Space');
         assert.equal(await app.page.evaluate(() => window.running), true,
             'the clock stopped answering once the cooldown passed');
+    } finally { await app.close(); }
+});
+
+test('the keyboard arms the clock into Timer focus, and Esc cancels the arm', async () => {
+    const app = await openServedApp();
+    try {
+        await clickPractice(app.page);
+
+        await app.page.keyboard.down('Space'); // press down, held
+        assert.equal((await app.page.textContent('#timer')).trim(), '0.00',
+            'Space press-down never read the armed clock');
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'pressing Space started the solve on its own');
+        for (const sel of ['.topbar', '#scramble', '.goal-row', '#stats'])
+            assert.ok(!(await onScreen(app.page, sel)), `${sel} is on screen during Timer focus`);
+
+        await app.page.keyboard.up('Space');
+        assert.equal(await app.page.evaluate(() => window.running), true,
+            'the Space release did not start the solve');
+
+        await app.page.keyboard.press('Escape'); // any key stops a running solve
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'Esc did not stop the running solve');
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
+            'the stopped solve did not record its time');
+        assert.ok(await onScreen(app.page, '#scramble'), 'the interface stayed hidden after the stop');
+
+        // Esc on an armed press drops the arm: no solve, and the interface comes back
+        await app.page.evaluate(() => new Promise((r) => setTimeout(r, 600))); // past the cooldown
+        await app.page.keyboard.down('Space');
+        assert.ok(!(await onScreen(app.page, '.goal-row')), 'Space press-down never entered Timer focus');
+        await app.page.keyboard.press('Escape');
+        await app.page.keyboard.up('Space');
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'Esc on an armed press started a solve');
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
+            'the cancelled arm recorded a time');
+        assert.ok(await onScreen(app.page, '.goal-row'), 'the interface stayed in Timer focus after the cancel');
+    } finally { await app.close(); }
+});
+
+test('a key held through a stop does not arm the next solve', async () => {
+    const app = await openServedApp();
+    try {
+        await clickPractice(app.page);
+        await app.page.keyboard.down('Space');
+        await app.page.keyboard.up('Space'); // the release starts the solve
+        assert.equal(await app.page.evaluate(() => window.running), true,
+            'the Space release did not start the solve');
+
+        await app.page.keyboard.down('Space'); // the stop, with the key kept down
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'the held Space did not stop the solve');
+        await app.page.evaluate(() => new Promise((r) => setTimeout(r, 600))); // past the Start cooldown
+        for (const repeat of [1, 2]) { // the OS auto-repeat lands on the key that is still down
+            await app.page.evaluate(() => {
+                document.getElementById('bodyid').dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+            });
+        }
+        assert.ok(await onScreen(app.page, '.goal-row'),
+            'the held key entered Timer focus at its first repeat');
+        assert.notEqual((await app.page.textContent('#timer')).trim(), '0.00',
+            'the held key armed the clock at its first repeat');
+
+        await app.page.keyboard.up('Space');
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'the held key started a solve on its release');
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
+            'the held key recorded a second solve');
+    } finally { await app.close(); }
+});
+
+test('the words on screen say press and hold, Cancel, and Esc', async () => {
+    const app = await openServedApp();
+    try {
+        await clickPractice(app.page);
+        const caption = (await app.page.textContent('#timerCaption')).trim();
+        assert.match(caption, /press and release to start/, `the keyboard caption is "${caption}"`);
+        assert.match(caption, /Esc cancels/, `the keyboard caption never mentions Esc: "${caption}"`);
+
+        const label = await app.page.getAttribute('#timer', 'aria-label');
+        assert.match(label, /press and hold/, `the clock label is "${label}"`);
+        assert.match(label, /Cancel/, `the clock label never says Cancel: "${label}"`);
+
+        await app.page.click('#settingsToggle');
+        const hint = await app.page.evaluate(() => {
+            const row = [...document.querySelectorAll('#settingsSheet .sheet-row')]
+                .find(r => r.textContent.includes('Timing'));
+            return row ? row.textContent.replace(/\s+/g, ' ') : null;
+        });
+        assert.ok(hint, 'there is no Timing row in Settings');
+        assert.match(hint, /press and hold/i, `the Timing note is "${hint}"`);
+        assert.match(hint, /Timer focus/, `the Timing note never names Timer focus: "${hint}"`);
+        assert.match(hint, /Esc cancels/i, `the Timing note never mentions Esc: "${hint}"`);
+    } finally { await app.close(); }
+});
+
+test('the Start gate setting is the user\u0027s, clamped to 0..1000, stored, and quick-taps at 0', async () => {
+    const app = await openServedApp();
+    try {
+        const field = app.page.locator('#startGate_in');
+        const apply = async (text) => {
+            await field.fill(text);
+            await field.evaluate(el => el.dispatchEvent(new Event('change'))); // the page applies on change
+        };
+
+        assert.equal(await field.inputValue(), '500', 'the Start gate field does not show the default');
+        assert.equal(await app.page.evaluate(() => window.startGateMs), 500,
+            'the app does not read the gate from storage at load');
+
+        await clickPractice(app.page);
+        await app.page.click('#settingsToggle'); // the sheet is hidden until opened
+        await apply('0');
+        await app.page.keyboard.press('Escape'); // close the sheet: the clock is under it
+        assert.equal(await app.page.evaluate(() => window.startGateMs), 0, 'the change never took effect');
+        assert.equal(await app.page.evaluate(() => localStorage.getItem('zbllstartGateMs')), '0',
+            'the gate is not stored');
+
+        const clock = await boxOf(app.page, '#timer');
+        const cx = clock.x + clock.width / 2, cy = clock.y + clock.height / 2;
+        await pressHoldRelease(app.page, cx, cy, 120); // a quick tap
+        assert.equal(await app.page.evaluate(() => window.running), true,
+            'gate 0: a quick tap never started the solve');
+        await app.page.click('#timer'); // stop
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
+            'the quick tap did not record its solve');
+
+        await app.page.click('#settingsToggle');
+        await apply('2000');
+        assert.equal(await field.inputValue(), '1000', 'the field kept a gate above its range');
+        assert.equal(await app.page.evaluate(() => localStorage.getItem('zbllstartGateMs')), '1000');
+        await apply('');
+        assert.equal(await app.page.evaluate(() => window.startGateMs), 500,
+            'an empty gate field did not fall back to the default');
+
+        // the gate survives a reload, as the sizes do
+        await apply('800');
+        await app.page.reload();
+        assert.equal(await app.page.evaluate(() => window.startGateMs), 800,
+            'the stored gate did not come back');
+        assert.equal(await app.page.locator('#startGate_in').inputValue(), '800',
+            'the field does not repaint the stored gate');
     } finally { await app.close(); }
 });
 

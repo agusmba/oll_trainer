@@ -149,6 +149,16 @@ var startMilliseconds, stopMiliseconds; // date and time when timer was started
 var allowed = true; // allowed var is for preventing auto-repeat when you hold a button
 var running = false; var waiting = false;
 var timer = document.getElementById("timer");
+var cancelBand = document.getElementById("cancelBand");
+
+// The press is in progress: armed at press-down, gateMet once the Start gate is crossed.
+// A release starts only past the gate, and only a drag past the gate shows Cancel.
+var armed = false; var gateMet = false;
+var pressX = 0, pressY = 0;
+var armedPointerId = null; // the pointer that armed; its release starts, others are ignored
+var armedTouchId = null; // the same finger in the touch-event fallback, by identifier
+var gateTimeout;
+var lastStoppedText = null; // the time the clock reads back after an arm is abandoned
 
 // The hand that stops the clock keeps moving: a second finger, or the same finger tapping
 // again, lands on the clock straight after the stop. A start arriving within this window is
@@ -172,11 +182,11 @@ function isTouchPrimary()
     return navigator.maxTouchPoints > 0;
 }
 
-welcomeMessage = isTouchPrimary() ? "tap to start" : "ready";
+welcomeMessage = isTouchPrimary() ? "press and hold" : "ready";
 timer.innerHTML = welcomeMessage;
 document.getElementById("timerCaption").innerHTML = isTouchPrimary()
-    ? "press and release to start &middot; press again to stop"
-    : "space: press and release to start &middot; any key to stop";
+    ? "press and hold to start &middot; drag for Cancel &middot; press again to stop"
+    : "space: press and release to start &middot; Esc cancels &middot; any key to stop";
 
 /// Short haptic when a solve stops on a touch screen, so the finger resting on the
 /// clock knows the time is in without reading the screen.
@@ -253,20 +263,32 @@ document.getElementById("bodyid").addEventListener("keydown", function(event) {
         return;
     }
 
-    if (!allowed || !window.allowStartingTimer)
-        return; // preventing auto-repeat and empty scrambles
-
-    if (event.keyCode != 16) // shift
-        allowed = false;
+    if (!window.allowStartingTimer)
+        return; // no Cases selected: the clock is refused
 
     if (running)
     {
         timerStop();
+        allowed = false; // the key that stopped the clock must not arm at its first repeat
         return;
     }
-    else if (event.keyCode == timerActivatingButton)
+    if (event.keyCode == 27)
     {
-        timerSetReady();
+        timerDisarm(); // ESC abandons an armed clock, and works while Space is held
+        return;
+    }
+    if (!allowed)
+        return; // preventing auto-repeat
+
+    if (event.keyCode != 16) // shift
+        allowed = false;
+
+    if (event.keyCode == timerActivatingButton && !armed)
+    {
+        armed = true;
+        waiting = false;
+        if (!startTooSoon())
+            timerSetReady(); // the keyboard is exempt from the gate: Space arms and focuses
         return;
     }
 });
@@ -277,12 +299,15 @@ document.getElementById("bodyid").addEventListener("keyup", function(event) {
         return; // whatever took the keydown owns this release too
     if (!window.allowStartingTimer)
         return; // preventing auto-repeat
-    if (!running && !waiting && (event.keyCode == timerActivatingButton)) {
-        timerStart();
+    if (event.keyCode == timerActivatingButton)
+    {
+        if (!running && armed && gateMet)
+            timerStart();
+        else
+            timerDisarm(); // a spent press leaves no arm over the cooldown
     }
-    else {
+    else
         timerAfterStop();
-    }
 });
 
 /// Press-and-release on the clock arms it and starts it, the way a StackMat does: the
@@ -292,45 +317,141 @@ document.getElementById("bodyid").addEventListener("keyup", function(event) {
 if (window.PointerEvent) {
     timer.addEventListener("pointerdown", function(event) {
         event.preventDefault();
-        handleTouchStart();
+        handleTouchStart(event);
     }, false);
+    timer.addEventListener("pointermove", handleTouchMove, false);
     timer.addEventListener("pointerup", function(event) {
         event.preventDefault();
-        handleTouchEnd();
+        handleTouchEnd(event);
     }, false);
-    timer.addEventListener("pointercancel", function(event) { timerDisarm(); }, false);
+    timer.addEventListener("pointercancel", handlePointerCancel, false);
 } else {
     timer.addEventListener("touchstart", handleTouchStart, false);
+    timer.addEventListener("touchmove", handleTouchMove, false);
     timer.addEventListener("touchend", handleTouchEnd, false);
+    timer.addEventListener("touchcancel", timerDisarm, false);
 }
 
 timer.addEventListener("contextmenu", function(event) { event.preventDefault(); }, false);
 
-/// Drops an arm that never became a solve: the pointer left the clock before releasing.
+/// Drops an arm that never became a solve, and leaves Timer focus: a release before the
+/// gate, a release on the Cancel band, a browser pointercancel, or ESC.
 function timerDisarm() {
-    if (!running && !waiting) {
-        timer.classList.remove("is-ready");
-        timer.innerHTML = welcomeMessage;
-    }
-}
-
-function handleTouchEnd() {
-    if (!window.allowStartingTimer)
-        return; // preventing auto-repeat
-    if (!running && !waiting) {
-        timerStart();
-    }
-    else {
-        timerAfterStop();
-    }
-}
-
-function handleTouchStart() {
     if (running)
+        return; // the clock is counting, so there is no arm to drop
+    clearTimeout(gateTimeout);
+    armed = false;
+    armedPointerId = null;
+    gateMet = false;
+    waiting = false;
+    timer.classList.remove("is-ready");
+    timer.innerHTML = lastStoppedText || welcomeMessage;
+    exitTimerFocus();
+}
+
+/// \returns the press point of a pointer or touch event: a touch event carries its own
+/// points, a pointer event answers at the pointer.
+function pressPoint(event) {
+    var t = (event.changedTouches && event.changedTouches.length)
+        ? event.changedTouches[0]
+        : (event.touches && event.touches.length ? event.touches[0] : event);
+    return { x: t.clientX, y: t.clientY };
+}
+
+/// \returns true when a pointer event belongs to a finger other than the armed one
+function isOtherPointer(event) {
+    if (armedPointerId != null && event.pointerId != null)
+        return event.pointerId !== armedPointerId;
+    if (armedTouchId != null && event.changedTouches && event.changedTouches.length)
+        return event.changedTouches[0].identifier !== armedTouchId; // a lifted finger that never armed
+    return false;
+}
+
+/// The browser takes the gesture away: a palm rejection, a system gesture. The arm is
+/// dropped and nothing starts.
+function handlePointerCancel(event) {
+    if (isOtherPointer(event))
+        return; // a second pointer leaving is not the armed press
+    timerDisarm();
+}
+
+/// Timer focus: the solve screen reduced to the clock alone, because the eye is on the
+/// cube and the Goal, the times and the topbar crowd the timer.
+function enterTimerFocus() {
+    document.getElementById("bodyid").classList.add("timer-focus");
+}
+
+function exitTimerFocus() {
+    document.getElementById("bodyid").classList.remove("timer-focus");
+    cancelBand.hidden = true;
+}
+
+/// \returns true when a release point lands inside the Cancel band
+function overCancelBand(x, y) {
+    if (cancelBand.hidden)
+        return false;
+    var r = cancelBand.getBoundingClientRect();
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+
+/// Press-down arms the clock and captures the pointer, so a finger that wanders keeps
+/// the arm instead of dropping it. A press inside the Start cooldown never arms, so the
+/// tail of the stopping hand cannot flash the focus screen; its release begins a fresh
+/// gesture. A gate of 0 is met at press-down.
+function handleTouchStart(event) {
+    if (running) {
         timerStop();
-    else {
-        timerSetReady(); // set green back
+        return;
     }
+    if (armed || !window.allowStartingTimer)
+        return; // a second finger while armed is ignored; no Cases selected refuses the press
+    if (startTooSoon())
+        return; // the tail of the hand that stopped the clock, not a new solve
+    var p = pressPoint(event);
+    armed = true;
+    armedPointerId = event.pointerId != null ? event.pointerId : null;
+    armedTouchId = (event.changedTouches && event.changedTouches.length)
+        ? event.changedTouches[0].identifier : null; // the touch fallback has no pointerId
+    pressX = p.x; pressY = p.y;
+    if (event.pointerId != null && timer.setPointerCapture)
+        timer.setPointerCapture(event.pointerId);
+    if (startGateMs <= 0)
+        timerSetReady();
+    else
+        gateTimeout = setTimeout(timerSetReady, startGateMs);
+}
+
+/// A drag past 15 px inside Timer focus raises the Cancel band, and the band stays for
+/// the rest of the press: a target the thumb has to chase is not a target.
+function handleTouchMove(event) {
+    if (isOtherPointer(event))
+        return; // a second finger on the clock does not move the armed press
+    if (!armed || !gateMet || !cancelBand.hidden)
+        return; // the band is raised once, and stays for the rest of the press
+    var p = pressPoint(event);
+    if (Math.hypot(p.x - pressX, p.y - pressY) > 15)
+        cancelBand.hidden = false;
+}
+
+/// The release decides by where it lands: on the Cancel band it abandons the arm,
+/// anywhere else it starts the solve, and before the gate it is a no-op.
+function handleTouchEnd(event) {
+    if (isOtherPointer(event))
+        return; // a release from a finger that never armed: the armed press keeps its gate
+    clearTimeout(gateTimeout);
+    if (!armed) {
+        timerAfterStop(); // the release of the press that stopped the solve
+        return;
+    }
+    if (!gateMet) {
+        timerDisarm(); // released before the gate: no focus, no start, no solve
+        return;
+    }
+    var p = pressPoint(event);
+    if (overCancelBand(p.x, p.y))
+        timerDisarm();
+    else
+        timerStart();
 }
 
 function timerStop() {
@@ -340,27 +461,31 @@ function timerStop() {
 
     var d = new Date();
     stopMiliseconds = d.getTime();
-    timer.innerHTML = msToHumanReadable(stopMiliseconds - startMilliseconds);
+    lastStoppedText = msToHumanReadable(stopMiliseconds - startMilliseconds);
+    timer.innerHTML = lastStoppedText;
     timer.classList.remove("is-ready");
     timer.classList.add("is-stopped");
     buzz();
 
     appendStats();
     showScramble();
+    exitTimerFocus();
 }
 
+/// The Start gate is met: the clock reads 0.00 ready, and Timer focus begins.
 function timerSetReady() {
-    waiting = false; // the press is spent, so the next release is a fresh gesture
-    if (startTooSoon())
-        return; // the stopped time stays on screen, so the reader keeps the time they made
+    gateMet = true;
     timer.innerHTML = "0.00";
     timer.classList.remove("is-stopped");
     timer.classList.add("is-ready");
+    enterTimerFocus();
 }
 
 function timerStart() {
-    if (startTooSoon())
-        return; // the tail of the hand that stopped the clock, not a new solve
+    armed = false;
+    gateMet = false;
+    armedPointerId = null;
+    cancelBand.hidden = true; // a running solve has nothing to cancel: the band is gone
     var d = new Date();
     startMilliseconds = d.getTime();
     running = true;
@@ -386,6 +511,29 @@ if (isNaN(timerSize) || timerSize <= 0)
 var scrambleSize = parseInt(loadLocal("zbllscrambleSize", ""+defScrambleSize));
 if (isNaN(scrambleSize) || scrambleSize <= 0)
     scrambleSize = defScrambleSize;
+
+// The Start gate is the user's, like the sizes: the touch held before the release
+// starts, 500 ms by default. 0 means the gate is met at press-down, so a quick tap
+// starts as it used to.
+var defStartGateMs = 500;
+var startGateMs = parseInt(loadLocal("zbllstartGateMs", ""+defStartGateMs));
+if (isNaN(startGateMs) || startGateMs < 0 || startGateMs > 1000)
+    startGateMs = defStartGateMs;
+document.getElementById("startGate_in").value = startGateMs;
+
+/// Takes the Start gate from its field, clamps it to the range the field allows, stores
+/// it, and repaints the field to the value in effect.
+function applyStartGate() {
+    var field = document.getElementById("startGate_in");
+    var ms = parseInt(field.value, 10);
+    if (isNaN(ms) || ms < 0)
+        ms = defStartGateMs;
+    if (ms > 1000)
+        ms = 1000;
+    startGateMs = ms;
+    saveLocal("zbllstartGateMs", ""+ms);
+    field.value = ms;
+}
 
 /// \param item "timer" or "scramble"
 function applySize(item)

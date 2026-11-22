@@ -144,6 +144,62 @@
 #timer.is-ready { color: var(--ready); border-color: var(--ready); }
 #timer.is-stopped { color: var(--stopped); border-color: var(--stopped); }
 
+/* Timer focus: the solve screen reduced to the clock alone, entered at the Start gate
+   and left at the stop. Everything the reader uses between solves goes off screen: the
+   eye is on the cube, and the Goal, the times and the topbar crowd the timer. */
+body.timer-focus .app-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    grid-template-areas: "timer";
+    gap: 0;
+    padding: 0;
+}
+
+body.timer-focus .topbar,
+body.timer-focus #scramble,
+body.timer-focus .timer-caption,
+body.timer-focus .goal-row,
+body.timer-focus #stats,
+body.timer-focus .practice-footer { display: none; }
+
+body.timer-focus #timer {
+    min-height: 0;
+    border-radius: 0;
+    font-size: min(22svh, 24vw);
+}
+
+@supports not (height: 1svh) {
+    body.timer-focus #timer { font-size: min(22vh, 24vw); }
+}
+
+/* The Cancel band: what a wandering finger gets inside Timer focus. Releasing on it
+   abandons the arm, releasing anywhere else starts, so it is a target the thumb can
+   reach and not a chase. */
+#cancelBand {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    height: 25vh;
+    height: 25svh;
+    min-height: var(--tap);
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 0;
+    background-color: var(--surface);
+    color: var(--stopped);
+    font-family: var(--font);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+#cancelBand[hidden] { display: none; }
+
 .timer-caption {
     text-align: center;
     color: var(--muted);

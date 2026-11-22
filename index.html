@@ -11,9 +11,9 @@
      bump-version only versions scripts/ and styles/, and the manifest's own contents
      change with the palettes, which offline.test.mjs compares against. -->
 <link rel="manifest" href="manifest.json"/>
-<link rel="stylesheet" type="text/css" href="styles/main.css?v6">
-<link rel="stylesheet" type="text/css" href="styles/selection.css?v6">
-<link rel="stylesheet" type="text/css" href="styles/timer.css?v6">
+<link rel="stylesheet" type="text/css" href="styles/main.css?v7">
+<link rel="stylesheet" type="text/css" href="styles/selection.css?v7">
+<link rel="stylesheet" type="text/css" href="styles/timer.css?v7">
 </head>
 <body class="niceBody" id="bodyid">
 
@@ -38,8 +38,12 @@
         <div class="timer-zone">
             <!-- role=button with tabindex: the clock is the screen's main control, and
                  Space / Enter reach it from the keyboard as well as the finger. -->
-            <div id="timer" role="button" tabindex="0" aria-label="Clock: press and release Space, or press and release the clock, to start. Press again to stop.">loading, please wait...</div>
+            <div id="timer" role="button" tabindex="0" aria-label="Clock: press and hold the clock, or Space, then release, to start. Drag for Cancel, or Esc. Press again to stop.">loading, please wait...</div>
             <p class="timer-caption" id="timerCaption"></p>
+            <!-- Timer focus: the band a wandering finger gets, and the whole point of
+                 releasing on it. It is a real button for the reader, but the release's
+                 position decides and not a tap, so it has no click handler. -->
+            <button type="button" id="cancelBand" hidden>Cancel</button>
         </div>
 
         <!-- Goal and reset weights stay on the solve screen: they are the two knobs
@@ -102,9 +106,18 @@
             </div>
 
             <div class="sheet-row">
+                <span>Start gate</span>
+                <input type="number" class="field settinginput" id="startGate_in" min=0 max=1000
+                       inputmode="numeric" onchange="applyStartGate();"
+                       title="How long the clock must be held before its release starts the solve. 0 means a quick tap starts."/>
+                <span class="hint">ms</span>
+            </div>
+
+            <div class="sheet-row">
                 <span>Timing</span>
-                <span class="hint">Press and release Space to start; press again (any key) to stop.
-                    On a touch screen, press and release the clock to start, press again to stop.
+                <span class="hint">Press and hold the clock, then release, to start; drag for Cancel.
+                    Space: press and release to start, Esc cancels the arm; any key stops.
+                    Timer focus shows the clock alone, filling the screen, while solving.
                     Delete removes the last time, Shift+Delete clears the session, Esc closes the case card.</span>
             </div>
         </div>
@@ -157,14 +170,14 @@
 
 <!-- Load order is load-bearing: scripts/ui.js defines overlayOpen() and trapFocus(),
     which scripts/timer.js reads to keep its keys from timing behind a dialog. -->
-<script src="scripts/algsinfo.js?v13"></script>
-<script src="scripts/algsmap.js?v13"></script>
-<script src="scripts/weights.js?v13"></script>
-<script src="scripts/saveload.js?v13"></script>
-<script src="scripts/selection.js?v13"></script>
-<script src="scripts/timer.js?v13"></script>
-<script src="scripts/ui.js?v13"></script>
-<script src="scripts/practice.js?v13"></script>
+<script src="scripts/algsinfo.js?v14"></script>
+<script src="scripts/algsmap.js?v14"></script>
+<script src="scripts/weights.js?v14"></script>
+<script src="scripts/saveload.js?v14"></script>
+<script src="scripts/selection.js?v14"></script>
+<script src="scripts/timer.js?v14"></script>
+<script src="scripts/ui.js?v14"></script>
+<script src="scripts/practice.js?v14"></script>
 <script>
 // The app opens where the reader left it: Mode and the Recap backlog come back from
 // localStorage, so a reload lands on the solve screen, not on the case grid.
