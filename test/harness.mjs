@@ -168,6 +168,15 @@ export async function tapCenter(page, selector) {
     await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
 }
 
+/// Press, hold, and release at a point: the way the Start gate is crossed.
+/// \param ms how long the press is held before the release
+export async function pressHoldRelease(page, x, y, ms) {
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.waitForTimeout(ms);
+    await page.mouse.up();
+}
+
 /// \returns { width, height } of the visible viewport
 export function viewport(page) {
     return page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
@@ -182,6 +191,12 @@ export function boxOf(page, selector) {
         const r = el.getBoundingClientRect();
         return { x: r.x, y: r.y, width: r.width, height: r.height };
     }, selector);
+}
+
+/// \returns true when a selector is rendered with a box of its own on screen
+export async function onScreen(page, selector) {
+    const box = await boxOf(page, selector);
+    return !!box && box.width > 0 && box.height > 0;
 }
 
 /// Case pictures that never rendered, by src.

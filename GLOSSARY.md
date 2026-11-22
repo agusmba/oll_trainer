@@ -32,6 +32,18 @@ _Avoid_: session (the clear-session button clears the times history alone)
 The window after a stop during which a start on the clock is ignored: the hand that stopped the clock keeps moving — a second finger, or the same finger tapping twice — and its tail is not a new solve. 500 ms, measured from the stop.
 _Avoid_: debounce, anti-ghost tap
 
+**Start gate**:
+The sustained touch that turns an armed clock into a start: 500 ms of a held press, after which the release starts the solve. A quick tap is not a solve. The keyboard is exempt: Space press-and-release starts.
+_Avoid_: long press, intention, minimum touch
+
+**Timer focus**:
+The solve screen reduced to the clock alone: entered when the Start gate is met (on the keyboard, at Space press-down), left at the stop, when the Goal, times and topbar come back. Not a dialog: nothing opens during Timer focus and nothing traps the keyboard.
+_Avoid_: fullscreen mode, focus mode, zen mode
+
+**Cancel area**:
+The band that appears on the Timer focus screen when an armed finger drags: releasing on it abandons the arm, releasing elsewhere starts the solve, and moving away leaves it. Dismissed by moving, never submitted.
+_Avoid_: cancel popup, cancel button, abort dialog
+
 **Case card**:
 The dialog that shows one Case while solving: its picture, name, the alg and the setup the scramble came from. Opened from a Case name in the times history or from a tile of the Selection summary. Lives in the markup as `hintWindow` / `box`, which is the picture's window, not the Case itself.
 _Avoid_: hint, peek, popup

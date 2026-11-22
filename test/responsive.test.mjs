@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import {
     openApp, clickCase, clickGroup, clickPractice, brokenImages, caseCellIds,
-    tapCenter, viewport, boxOf, recordTimes, closeBrowser,
+    tapCenter, pressHoldRelease, viewport, boxOf, onScreen, recordTimes, closeBrowser,
 } from './harness.mjs';
 import { serveRepo } from './server.mjs';
 
@@ -118,21 +118,29 @@ test('the controls on the solve screen meet the touch size', async () => {
     } finally { await app.close(); }
 });
 
-test('press and release on the clock starts and stops the timer, as a StackMat does', async () => {
+test('press and hold past the Start gate starts the solve, a quick tap does not', async () => {
     const app = await openPhone();
     try {
         await clickPractice(app.page);
-        assert.match(await app.page.textContent('#timer'), /tap to start/,
-            'a touch screen should read the clock as a tap target');
+        assert.match(await app.page.textContent('#timerCaption'), /press and hold/,
+            'a touch screen should read the clock as press-and-hold');
+        const clock = await boxOf(app.page, '#timer');
+        const cx = clock.x + clock.width / 2, cy = clock.y + clock.height / 2;
 
-        await tapCenter(app.page, '#timer');
-        await app.page.waitForTimeout(250);
+        // a quick tap is not a solve
+        await pressHoldRelease(app.page, cx, cy, 120);
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'a tap under the Start gate started the solve');
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 0,
+            'a tap under the Start gate recorded a solve');
+
+        // held past the gate, the release starts
+        await pressHoldRelease(app.page, cx, cy, 700);
         assert.equal(await app.page.evaluate(() => window.running), true,
-            'a tap on the clock did not start the timer');
-
+            'a press held past the Start gate did not start the solve');
         await tapCenter(app.page, '#timer');
         assert.equal(await app.page.evaluate(() => window.running), false,
-            'a second tap did not stop the timer');
+            'a plain press did not stop the solve');
         const shown = await app.page.textContent('#timer');
         assert.match(shown.trim(), /^\d+\.\d+$/, `timer text was "${shown}"`);
         assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
@@ -140,12 +148,71 @@ test('press and release on the clock starts and stops the timer, as a StackMat d
     } finally { await app.close(); }
 });
 
-test('the tail of a stop does not start the next solve', async () => {
+test('past the Start gate the screen is the clock alone, filling the window', async () => {
     const app = await openPhone();
     try {
         await clickPractice(app.page);
+        const clock = await boxOf(app.page, '#timer');
+        const cx = clock.x + clock.width / 2, cy = clock.y + clock.height / 2;
 
-        await tapCenter(app.page, '#timer');
+        await app.page.mouse.move(cx, cy);
+        await app.page.mouse.down();
+        await app.page.waitForTimeout(650); // past the 500ms gate, held
+        const screen = app.screen;
+        const focused = await boxOf(app.page, '#timer');
+        assert.ok(focused.width >= screen.width * 0.98,
+            `the focused clock is ${focused.width} wide on a ${screen.width}px screen`);
+        assert.ok(focused.height >= screen.height * 0.9,
+            `the focused clock is ${focused.height} tall on a ${screen.height}px screen`);
+        assert.match((await app.page.textContent('#timer')).trim(), /^0\.00$/,
+            'the armed clock does not read the ready 0.00');
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'the gate started the timer on its own');
+        for (const sel of ['.topbar', '#scramble', '.timer-caption', '.goal-row', '#stats', '.practice-footer'])
+            assert.ok(!(await onScreen(app.page, sel)), `${sel} is on screen during Timer focus`);
+
+        await app.page.mouse.up();
+        assert.equal(await app.page.evaluate(() => window.running), true,
+            'the release after the gate did not start the solve');
+        const during = await boxOf(app.page, '#timer');
+        assert.ok(during.height >= screen.height * 0.9, 'the clock lost the screen during the solve');
+
+        await tapCenter(app.page, '#timer'); // stop
+        assert.ok(await onScreen(app.page, '.goal-row'),
+            'the interface did not come back with the stopped time');
+        assert.ok(await onScreen(app.page, '#stats'), 'the times history is gone after the stop');
+    } finally { await app.close(); }
+});
+
+test('Timer focus collapses the two-column desktop layout to the clock', async () => {
+    const app = await openApp({ url: server.url, viewport: { width: 1440, height: 900 } });
+    try {
+        await clickPractice(app.page);
+        const clock = await boxOf(app.page, '#timer');
+        const screen = await viewport(app.page);
+
+        await app.page.mouse.move(clock.x + clock.width / 2, clock.y + clock.height / 2);
+        await app.page.mouse.down();
+        await app.page.waitForTimeout(650);
+        const focused = await boxOf(app.page, '#timer');
+        assert.ok(focused.width >= screen.width * 0.98,
+            `the focused clock is ${focused.width} wide inside a ${screen.width}px window`);
+        assert.ok(focused.height >= screen.height * 0.9,
+            `the focused clock is ${focused.height} tall inside a ${screen.height}px window`);
+        for (const sel of ['.topbar', '#scramble', '.goal-row', '#stats', '.practice-footer'])
+            assert.ok(!(await onScreen(app.page, sel)), `${sel} is on screen during Timer focus`);
+        await app.page.mouse.up();
+    } finally { await app.close(); }
+});
+
+test('the tail of a stop never arms the clock', async () => {
+    const app = await openPhone();
+    try {
+        await clickPractice(app.page);
+        const clock = await boxOf(app.page, '#timer');
+        const cx = clock.x + clock.width / 2, cy = clock.y + clock.height / 2;
+
+        await pressHoldRelease(app.page, cx, cy, 700);
         await app.page.waitForTimeout(120);
         await tapCenter(app.page, '#timer'); // stop the solve
         const stopped = (await app.page.textContent('#timer')).trim();
@@ -155,26 +222,118 @@ test('the tail of a stop does not start the next solve', async () => {
 
         // the hand that stopped the timer keeps moving: a second finger, or the same
         // finger tapping again, lands right where the thumb already is
-        await tapCenter(app.page, '#timer');
+        await pressHoldRelease(app.page, cx, cy, 120); // inside the cooldown, under the gate
         const gap = await app.page.evaluate(() => Date.now() - window.stopMiliseconds);
         assert.ok(gap < 500, `the follow-up tap landed ${gap}ms after the stop, outside the window the fix must cover`);
         assert.equal(await app.page.evaluate(() => window.running), false,
-            'a start inside the cooldown ran the next solve straight away');
+            'a press inside the cooldown ran the next solve straight away');
+        assert.ok(await onScreen(app.page, '.goal-row'),
+            'a press inside the cooldown entered Timer focus, so the screen flashed');
         assert.equal((await app.page.textContent('#timer')).trim(), stopped,
             'the clock left the stopped time, so the reader lost the time they had just made');
         assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
             'the follow-up tap produced a solve');
 
-        // the press that begins inside the cooldown is spent, so its release must be the
-        // start of the next solve: press, hold past the window, release
+        // the press that begins inside the cooldown is spent, so its release begins a
+        // fresh gesture: press past the window, hold past the gate, release
+        await app.page.waitForTimeout(600);
+        await pressHoldRelease(app.page, cx, cy, 700);
+        assert.equal(await app.page.evaluate(() => window.running), true,
+            'the clock stopped answering once the cooldown passed');
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
+            'a start must not record a time');
+    } finally { await app.close(); }
+});
+
+test('a drag inside the gate raises the Cancel band, and a release on it drops the arm', async () => {
+    const app = await openPhone();
+    try {
+        await clickPractice(app.page);
         const clock = await boxOf(app.page, '#timer');
-        await app.page.mouse.move(clock.x + clock.width / 2, clock.y + clock.height / 2);
+        const cx = clock.x + clock.width / 2, cy = clock.y + clock.height / 2;
+
+        await app.page.mouse.move(cx, cy);
         await app.page.mouse.down();
-        await app.page.evaluate(() => new Promise((r) => setTimeout(r, 800)));
+        await app.page.waitForTimeout(650);
+        assert.ok(!(await onScreen(app.page, '#cancelBand')), 'the band shows before the finger wanders');
+
+        await app.page.mouse.move(cx, cy - 60); // a drag inside the focused screen
+        assert.ok(await onScreen(app.page, '#cancelBand'), 'the wandering press never raised the Cancel band');
+        assert.match((await app.page.textContent('#timer')).trim(), /^0\.00$/,
+            'the band changed what the clock reads');
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'the band ran a solve by itself');
+
+        // the band stays for the rest of the press, so releasing on it drops the arm
+        const band = await boxOf(app.page, '#cancelBand');
+        await app.page.mouse.move(band.x + band.width / 2, band.y + band.height / 2);
+        assert.ok(await onScreen(app.page, '#cancelBand'), 'the band vanished mid-press');
+        await app.page.mouse.up();
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'a release on the Cancel band started a solve');
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 0,
+            'the cancelled press recorded a time');
+        assert.ok(await onScreen(app.page, '.goal-row'), 'the screen stayed in Timer focus after the cancel');
+        assert.ok(!(await onScreen(app.page, '#cancelBand')), 'the band stayed up after the arm was dropped');
+        const text = (await app.page.textContent('#timer')).trim();
+        assert.equal(text, 'press and hold', `the clock did not read back the welcome: "${text}"`);
+
+        // a release away from the band starts the solve
+        await app.page.mouse.move(cx, cy);
+        await app.page.mouse.down();
+        await app.page.waitForTimeout(650);
+        await app.page.mouse.move(cx, cy - 60);
+        assert.ok(await onScreen(app.page, '#cancelBand'), 'the second wandering press never raised the band');
+        await app.page.mouse.move(cx, cy); // back off the band
         await app.page.mouse.up();
         assert.equal(await app.page.evaluate(() => window.running), true,
-            'a press-and-release that began inside the cooldown never started the next solve');
-        assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
+            'a release away from the band did not start the solve');
+        assert.ok(!(await onScreen(app.page, '#cancelBand')),
+            'the Cancel band stayed up during the running solve');
+        await tapCenter(app.page, '#timer'); // stop, so the next press is not inside the cooldown
+    } finally { await app.close(); }
+});
+
+test('a pointercancel drops the arm, and a second pointer is ignored', async () => {
+    const app = await openPhone();
+    try {
+        await clickPractice(app.page);
+        const clock = await boxOf(app.page, '#timer');
+        const cx = clock.x + clock.width / 2, cy = clock.y + clock.height / 2;
+        const send = (type, pointerId) => app.page.evaluate(([t, id]) => {
+            document.getElementById('timer').dispatchEvent(
+                new PointerEvent(t, { pointerId: id, bubbles: true, clientX: 300, clientY: 400 }));
+        }, [type, pointerId]);
+
+        await app.page.mouse.move(cx, cy);
+        await app.page.mouse.down();
+        await app.page.waitForTimeout(650);
+        await send('pointercancel', 1); // the browser takes the gesture away
+        assert.equal((await app.page.textContent('#timer')).trim(), 'press and hold',
+            'the clock stayed armed after a pointercancel');
+        assert.ok(await onScreen(app.page, '.goal-row'), 'the screen stayed in Timer focus after the cancel');
+        await app.page.mouse.up();
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'the release of a cancelled press started a solve');
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 0,
+            'the cancelled press recorded a time');
+
+        // a second finger on the clock must not arm a second time, and its release must
+        // not start the solve before the first press is let go
+        await app.page.mouse.move(cx, cy);
+        await app.page.mouse.down();
+        await app.page.waitForTimeout(650);
+        await send('pointerdown', 2);
+        assert.equal((await app.page.textContent('#timer')).trim(), '0.00',
+            'the second finger took over the armed clock');
+        assert.ok(!(await onScreen(app.page, '#cancelBand')), 'the second finger raised the Cancel band');
+        await send('pointerup', 2);
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'the second finger started the solve');
+        await app.page.mouse.up(); // the first press is the gesture
+        assert.equal(await app.page.evaluate(() => window.running), true,
+            'the first release did not start the solve');
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 0,
             'a start must not record a time');
     } finally { await app.close(); }
 });
@@ -705,5 +864,38 @@ test('a wide screen that is short stacks the solve instead of crushing the histo
         });
         assert.ok(list.clientHeight >= 40, `the history is only ${list.clientHeight}px tall`);
         assert.ok(timer.y + timer.height <= screen.height, 'the clock itself is off a sideways screen');
+    } finally { await app.close(); }
+});
+
+test('in the touch-event fallback, a second finger never starts the solve', async () => {
+    const app = await openApp({ url: server.url, ...TOUCH, init: () => { delete window.PointerEvent; } });
+    try {
+        assert.equal(await app.page.evaluate(() => 'PointerEvent' in window), false,
+            'the app did not lose Pointer Events');
+        const cdp = await app.context.newCDPSession(app.page);
+        const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points });
+
+        await tapCenter(app.page, '#practiceButton');
+        const clock = await boxOf(app.page, '#timer');
+        const cx = clock.x + clock.width / 2, cy = clock.y + clock.height / 2;
+
+        await touch('touchStart', [{ x: cx, y: cy, id: 0 }]); // the first finger arms
+        await app.page.waitForTimeout(650); // past the Start gate
+        assert.equal((await app.page.textContent('#timer')).trim(), '0.00',
+            'the first finger never armed the clock');
+        await touch('touchStart', [{ x: cx, y: cy, id: 0 }, { x: cx + 20, y: cy + 20, id: 1 }]); // a second finger lands
+        await touch('touchEnd', [{ x: cx + 20, y: cy + 20, id: 1 }]); // only the second finger lifts
+        assert.equal(await app.page.evaluate(() => window.running), false,
+            'the second finger started the solve');
+        assert.equal((await app.page.textContent('#timer')).trim(), '0.00',
+            'the armed press lost its clock when a second finger lifted');
+
+        await touch('touchEnd', [{ x: cx, y: cy, id: 0 }]); // the armed finger releases
+        assert.equal(await app.page.evaluate(() => window.running), true,
+            'the armed press did not start the solve');
+        await touch('touchStart', [{ x: cx, y: cy, id: 0 }]); // the next press stops
+        await touch('touchEnd', [{ x: cx, y: cy, id: 0 }]);
+        assert.equal(await app.page.evaluate(() => window.timesArray.length), 1,
+            'the touch fallback did not record its solve');
     } finally { await app.close(); }
 });
